@@ -1,0 +1,1678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IELA Credit Advisor — DAY-NRLM Enterprise Loan Business Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.20/babel.min.js"></script>
+<style>
+  body { margin: 0; }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="padding:20px;font-family:sans-serif;color:#555;">Loading…</div>
+</div>
+
+<!-- App source is kept as plain text (not auto-processed by Babel) so we can transform
+     and execute it ourselves, inside a try/catch that can show BOTH compile errors
+     (bad JSX/JS syntax) and runtime errors (a bug while the app is running) on screen,
+     instead of a silent blank page. -->
+<script type="text/plain" id="app-source">
+const { useState, useMemo, useEffect, useRef } = React;
+
+
+// ---------------- finance helpers ----------------
+function pmt(principal, annualRatePct, months) {
+  const r = (Number(annualRatePct) || 0) / 100 / 12;
+  const p = Number(principal) || 0;
+  const n = Number(months) || 0;
+  if (!p || !n) return 0;
+  if (r === 0) return p / n;
+  const f = Math.pow(1 + r, n);
+  return (p * r * f) / (f - 1);
+}
+function maxLoanFromEmi(emi, annualRatePct, months) {
+  const r = (Number(annualRatePct) || 0) / 100 / 12;
+  const e = Number(emi) || 0;
+  const n = Number(months) || 0;
+  if (!e || !n) return 0;
+  if (r === 0) return e * n;
+  const f = Math.pow(1 + r, n);
+  return (e * (f - 1)) / (r * f);
+}
+function minTenure(principal, annualRatePct, emi) {
+  const r = (Number(annualRatePct) || 0) / 100 / 12;
+  const p = Number(principal) || 0;
+  const e = Number(emi) || 0;
+  if (!p || !e) return null;
+  if (r === 0) return Math.ceil(p / e);
+  if (e <= p * r) return null; // EMI can never cover interest — loan never pays off
+  return Math.ceil(Math.log(e / (e - p * r)) / Math.log(1 + r));
+}
+const num = (v) => Number(v) || 0;
+const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-IN");
+const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
+const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
+
+const STEPS = ["Identity / पहचान", "Enterprise & Loan / उद्यम व ऋण", "Financials / वित्तीय", "Projections / अनुमान", "Household / परिवार", "EMI Feasibility / ईएमआई व्यवहार्यता", "Report / रिपोर्ट"];
+
+function Icon({ name, size = 16, className = "" }) {
+  return (
+    <span
+      className={`material-symbols-outlined ${className}`}
+      style={{ fontSize: size, lineHeight: 1, verticalAlign: "middle", display: "inline-block" }}
+    >
+      {name}
+    </span>
+  );
+}
+
+const LocalStore = {
+  async list(prefix) {
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith(prefix));
+    return { keys };
+  },
+  async get(key) {
+    const v = localStorage.getItem(key);
+    if (v === null) throw new Error("not found");
+    return { key, value: v };
+  },
+  async set(key, value) {
+    localStorage.setItem(key, value);
+    return { key, value };
+  },
+};
+
+// ---------------- generic field system ----------------
+function Help({ text }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-block ml-1 align-middle">
+      <button type="button" onClick={() => setOpen(!open)} className="text-amber-700 hover:text-amber-600" aria-label="field help">
+        <Icon name="help" size={14} />
+      </button>
+      {open && (
+        <div className="absolute z-20 left-0 top-6 w-60 bg-emerald-900 text-stone-50 text-xs rounded-md p-3 shadow-lg leading-relaxed">
+          {text}
+        </div>
+      )}
+    </span>
+  );
+}
+
+function Field({ label, help, mandatory, auto, children }) {
+  return (
+    <label className="block mb-3">
+      <span className="flex items-center text-sm font-medium text-emerald-900">
+        {label}
+        {mandatory && <span className="text-red-700 ml-1">★</span>}
+        {auto && <span className="text-xs ml-1 px-1.5 py-0.5 rounded bg-red-50 text-red-700 font-semibold">AUTO</span>}
+        {help && <Help text={help} />}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function NumInput({ value, onChange, prefix = "₹" }) {
+  return (
+    <div className="mt-1 flex items-center border border-stone-400 rounded-md bg-white focus-within:ring-2 focus-within:ring-amber-600">
+      <span className="pl-3 text-stone-500 font-mono text-sm">{prefix}</span>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value === "" ? "" : e.target.value)}
+        className="w-full px-2 py-2 outline-none font-mono text-sm bg-transparent"
+        placeholder="0"
+      />
+    </div>
+  );
+}
+function TextInput({ value, onChange, placeholder }) {
+  return (
+    <input
+      type="text"
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className="mt-1 w-full px-3 py-2 border border-stone-400 rounded-md bg-white outline-none focus:ring-2 focus:ring-amber-600 text-sm"
+    />
+  );
+}
+function DateInput({ value, onChange }) {
+  return (
+    <input
+      type="date"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="mt-1 w-full px-3 py-2 border border-stone-400 rounded-md bg-white outline-none focus:ring-2 focus:ring-amber-600 text-sm"
+    />
+  );
+}
+function SelectInput({ value, onChange, opts }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="mt-1 w-full px-3 py-2 border border-stone-400 rounded-md bg-white outline-none focus:ring-2 focus:ring-amber-600 text-sm"
+    >
+      {opts.map((o) => <option key={o}>{o}</option>)}
+    </select>
+  );
+}
+function AutoValue({ value }) {
+  return <div className="mt-1 px-3 py-2 rounded-md bg-green-50 text-teal-700 font-mono text-sm">{value}</div>;
+}
+
+function renderField(f, obj, setObj) {
+  const set = (v) => setObj({ ...obj, [f.k]: v });
+  return (
+    <Field key={f.k} label={f.l} help={f.help} mandatory={f.mandatory}>
+      {f.type === "number" ? <NumInput prefix={f.prefix || "₹"} value={obj[f.k]} onChange={set} />
+        : f.type === "date" ? <DateInput value={obj[f.k]} onChange={set} />
+        : f.type === "select" ? <SelectInput value={obj[f.k]} onChange={set} opts={f.opts} />
+        : <TextInput value={obj[f.k]} onChange={set} placeholder={f.placeholder} />}
+    </Field>
+  );
+}
+function FieldGrid({ fields, obj, setObj }) {
+  return <>{fields.map((f) => renderField(f, obj, setObj))}</>;
+}
+
+function Banner({ tone, children }) {
+  const styles = {
+    warn: "bg-amber-50 border-amber-600 text-amber-800",
+    danger: "bg-red-50 border-red-700 text-red-800",
+    ok: "bg-green-100 border-green-700 text-green-800",
+  };
+  return (
+    <div className={`border-l-4 rounded-r-md px-3 py-2 text-sm mb-3 flex items-start gap-2 ${styles[tone]}`}>
+      {tone === "ok" ? <Icon name="check_circle" size={16} className="mt-0.5 shrink-0" /> : <Icon name="warning" size={16} className="mt-0.5 shrink-0" />}
+      <span>{children}</span>
+    </div>
+  );
+}
+function Row({ label, value, last, bold, auto }) {
+  return (
+    <div className={`flex justify-between py-1 ${!last ? "border-b border-stone-200" : ""} ${bold ? "font-semibold" : ""}`}>
+      <span className="text-stone-600">{label}</span>
+      <span className={`mono font-medium ${auto ? "text-red-700" : ""}`}>{value}</span>
+    </div>
+  );
+}
+function Card({ title, children }) {
+  return (
+    <div className="bg-white rounded-lg border border-stone-300 p-3 text-sm mb-4">
+      {title && <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">{title}</p>}
+      {children}
+    </div>
+  );
+}
+function SubHeading({ children }) {
+  return <h3 className="text-xs font-bold uppercase tracking-wide text-amber-600 mt-5 mb-2">{children}</h3>;
+}
+
+// ---------------- field definitions (mirrors the specimen sheets) ----------------
+const SHG_FIELDS = [
+  { k: "block", l: "Block / ब्लॉक", type: "text" }, { k: "gp", l: "Gram Panchayat / ग्राम पंचायत", type: "text" },
+  { k: "village", l: "Village / गांव", type: "text" }, { k: "shgName", l: "Name of SHG / एसएचजी का नाम", type: "text" },
+  { k: "district", l: "District / जिला", type: "text" }, { k: "state", l: "State / राज्य", type: "text" },
+  { k: "bankName", l: "Bank Name / बैंक का नाम", type: "text" }, { k: "branchName", l: "Branch Name / शाखा का नाम", type: "text" },
+  { k: "ifsc", l: "IFSC Code / आईएफएससी कोड", type: "text" }, { k: "sbAccount", l: "SB Account Number / बचत खाता संख्या", type: "text" },
+];
+const MEMBER_FIELDS = [
+  { k: "memberName", l: "Member Name / सदस्य का नाम", type: "text" }, { k: "fatherHusband", l: "Father / Husband Name / पिता / पति का नाम", type: "text" },
+  { k: "memberId", l: "Member ID / सदस्य आईडी", type: "text" }, { k: "dob", l: "Date of Birth / जन्म तिथि", type: "date" },
+  { k: "aadhaar", l: "Aadhaar Number / आधार संख्या", type: "text", mandatory: true }, { k: "pan", l: "PAN Number / पैन संख्या", type: "text", mandatory: true },
+  { k: "mobile", l: "Mobile Number / मोबाइल नंबर", type: "text", mandatory: true }, { k: "email", l: "Email / WhatsApp ID / ईमेल / व्हाट्सएप आईडी", type: "text", mandatory: true },
+  { k: "udyam", l: "Udyam Registration No. / उद्यम पंजीकरण संख्या", type: "text", mandatory: true }, { k: "gst", l: "GST Registration No. / जीएसटी पंजीकरण संख्या", type: "text", mandatory: true },
+  { k: "memberBankName", l: "Bank Name (Member) / बैंक का नाम (सदस्य)", type: "text" }, { k: "memberBranchName", l: "Branch Name (Member) / शाखा का नाम (सदस्य)", type: "text" },
+  { k: "memberIfsc", l: "IFSC Code (Member) / आईएफएससी कोड (सदस्य)", type: "text" }, { k: "memberSbAccount", l: "SB Account No. (Member) / बचत खाता संख्या (सदस्य)", type: "text" },
+  { k: "vittaSakhi", l: "Name of Vitta Sakhi / CRP-EP / वित्त सखी / सीआरपी-ईपी का नाम", type: "text" }, { k: "dateOfVisit", l: "Date of Visit / यात्रा की तिथि", type: "date" },
+];
+const DOCUMENTS = [
+  { k: "aadhaarCard", l: "Aadhaar Card / आधार कार्ड", mandatory: true }, { k: "panCard", l: "PAN Card / पैन कार्ड", mandatory: true },
+  { k: "mobileLinked", l: "Mobile No. linked to Aadhaar / आधार से जुड़ा मोबाइल नंबर", mandatory: true }, { k: "emailId", l: "Email ID / WhatsApp / ईमेल आईडी / व्हाट्सएप", mandatory: true },
+  { k: "gstCert", l: "GST Certificate (if registered) / जीएसटी प्रमाणपत्र (यदि पंजीकृत हो)", mandatory: true }, { k: "udyamCert", l: "Udyam / MSME Registration Certificate / उद्यम / एमएसएमई पंजीकरण प्रमाणपत्र", mandatory: true },
+  { k: "passbook6mo", l: "Bank Passbook / Statement – 6 months / बैंक पासबुक / विवरण – 6 महीने", mandatory: false }, { k: "shgPassbook", l: "SHG Passbook / एसएचजी पासबुक", mandatory: false },
+  { k: "addressProof", l: "Proof of Business Address / व्यवसाय पते का प्रमाण", mandatory: false }, { k: "premisesPhoto", l: "Photograph of Business Premises / व्यवसाय परिसर की फोटो", mandatory: false },
+  { k: "quotation", l: "Quotation / Invoice (Asset Purchase) / कोटेशन / चालान (परिसंपत्ति खरीद)", mandatory: false },
+];
+
+const ENTERPRISE_FIELDS = [
+  { k: "enterpriseName", l: "Enterprise Name / उद्यम का नाम", type: "text" }, { k: "enterpriseType", l: "Type of Enterprise / उद्यम का प्रकार", type: "select", opts: ["Trading", "Manufacturing", "Services"] },
+  { k: "activityType", l: "Type of Business Activity / व्यावसायिक गतिविधि का प्रकार", type: "text" }, { k: "startDate", l: "Business Start Date / व्यवसाय प्रारंभ तिथि", type: "date" },
+  { k: "currentActivity", l: "Current Business Activity / वर्तमान व्यावसायिक गतिविधि", type: "text" }, { k: "plannedActivity", l: "Planned Activity (post loan) / योजनाबद्ध गतिविधि (ऋण के बाद)", type: "text" },
+  { k: "businessAddress", l: "Business Address / व्यवसाय का पता", type: "text" }, { k: "districtState", l: "District / State / जिला / राज्य", type: "text" },
+  { k: "premises", l: "Business Premises / व्यवसाय परिसर", type: "select", opts: ["Owned", "Rented"] }, { k: "monthlyRent", l: "Monthly Rent if Rented / किराए पर होने पर मासिक किराया", type: "number" },
+  { k: "experience", l: "Business Experience (Years) / व्यवसाय अनुभव (वर्ष)", type: "number", prefix: "#" }, { k: "employees", l: "No. of Employees / कर्मचारियों की संख्या", type: "number", prefix: "#" },
+  { k: "recordsAvailable", l: "Business Records Available / व्यवसाय रिकॉर्ड उपलब्ध", type: "select", opts: ["Yes", "No"] }, { k: "recordsType", l: "Type of Records Maintained / रखे गए रिकॉर्ड का प्रकार", type: "text" },
+];
+const CREDIT_HISTORY_FIELDS = [
+  { k: "memberSince", l: "Member of SHG Since (Year) / एसएचजी सदस्यता वर्ष", type: "number", prefix: "#" }, { k: "loansLast3Yrs", l: "No. of Loans from SHG (Last 3 Yrs) / एसएचजी से ऋणों की संख्या (पिछले 3 वर्ष)", type: "number", prefix: "#" },
+  { k: "lastLoanAmount", l: "Amount of Last SHG Loan / पिछले एसएचजी ऋण की राशि", type: "number" }, { k: "highestLoanEver", l: "Highest SHG Loan Ever / अब तक का सर्वाधिक एसएचजी ऋण", type: "number" },
+  { k: "shgLoanOutstanding", l: "SHG Loan Outstanding / बकाया एसएचजी ऋण", type: "number", help: "Auto-links to Balance Sheet current liabilities." },
+  { k: "shgEmi", l: "Monthly EMI Payable to SHG / एसएचजी को देय मासिक ईएमआई", type: "number" }, { k: "shgInterestRate", l: "Interest Rate on SHG Loan (% p.a.) / एसएचजी ऋण पर ब्याज दर (% वार्षिक)", type: "number", prefix: "%" },
+  { k: "emiDelays", l: "EMI Delays >30 days (last 12 months) / ईएमआई विलंब >30 दिन (पिछले 12 महीने)", type: "number", prefix: "#" },
+  { k: "cumulativeShgSavings", l: "Cumulative SHG Savings / संचित एसएचजी बचत", type: "number", help: "Auto-links to Balance Sheet current assets." },
+  { k: "ownSbSavings", l: "Savings in Own Bank SB A/c / स्वयं के बचत खाते में जमा", type: "number" }, { k: "fdRd", l: "FD / RD with Bank / बैंक में एफडी / आरडी", type: "number" },
+  { k: "otherSavings", l: "Any Other Savings / Investment / कोई अन्य बचत / निवेश", type: "number" }, { k: "bankLoanOutstanding", l: "Bank Loan Outstanding / बकाया बैंक ऋण", type: "number" },
+  { k: "bankLoanEmi", l: "Bank Loan Monthly EMI / बैंक ऋण मासिक ईएमआई", type: "number" }, { k: "informalLoan", l: "Informal Loan – Family / Friends / अनौपचारिक ऋण – परिवार / मित्र", type: "number" },
+  { k: "cibilScore", l: "CIBIL Score (if available) / सिबिल स्कोर (यदि उपलब्ध हो)", type: "text", placeholder: "e.g. NTC" },
+];
+const F1_FIELDS = [
+  { k: "marginSource", l: "Source of Margin Money / मार्जिन मनी का स्रोत", type: "text" },
+  { k: "facilityType", l: "Loan Facility Type / ऋण सुविधा प्रकार", type: "select", opts: ["Term Loan", "Working Capital", "Composite"] },
+  { k: "tenureMonths", l: "Repayment Period Requested (Months) / अनुरोधित पुनर्भुगतान अवधि (महीने)", type: "number", prefix: "#" },
+  { k: "proposedEmi", l: "Proposed Monthly EMI (auto-suggested from PMT, override if needed) / प्रस्तावित मासिक ईएमआई (स्वतः सुझाई गई, आवश्यकता होने पर बदलें)", type: "number" },
+  { k: "interestRate", l: "Interest Rate Informed to Applicant (% p.a.) / आवेदक को बताई गई ब्याज दर (% वार्षिक)", type: "number", prefix: "%" },
+];
+const F2_FIELDS = [
+  { k: "wcPurpose", l: "Purpose of Working Capital Loan / कार्यशील पूंजी ऋण का उद्देश्य", type: "text" }, { k: "wcStockType", l: "Type of Raw Material / Stock / कच्चे माल / स्टॉक का प्रकार", type: "text" },
+  { k: "stockHoldingDays", l: "Stock Holding Period (Days) / स्टॉक धारण अवधि (दिन)", type: "number", prefix: "#" }, { k: "wcCycleDays", l: "Working Capital Cycle (Days) / कार्यशील पूंजी चक्र (दिन)", type: "number", prefix: "#" },
+  { k: "totalWcRequired", l: "Total WC Required / आवश्यक कुल कार्यशील पूंजी", type: "number" }, { k: "wcLoanAmount", l: "Working Capital Loan Amount / कार्यशील पूंजी ऋण राशि", type: "number" },
+];
+const F3_FIELDS = [
+  { k: "tlPurpose", l: "Purpose of Term Loan / टर्म लोन का उद्देश्य", type: "text" }, { k: "assetDescription", l: "Description of Asset / परिसंपत्ति का विवरण", type: "text" },
+  { k: "newOrReplacement", l: "New Purchase or Replacement? / नई खरीद या प्रतिस्थापन?", type: "select", opts: ["New Purchase", "Replacement"] },
+  { k: "assetLife", l: "Estimated Life of Asset (Years) / परिसंपत्ति का अनुमानित जीवनकाल (वर्ष)", type: "number", prefix: "#" }, { k: "supplierName", l: "Supplier / Vendor Name and Location / आपूर्तिकर्ता / विक्रेता का नाम व स्थान", type: "text" },
+  { k: "quotedPrice", l: "Quoted Price of Asset / परिसंपत्ति का उद्धृत मूल्य", type: "number" }, { k: "tlAmount", l: "Term Loan Amount Requested / अनुरोधित टर्म लोन राशि", type: "number" },
+];
+
+const H2_EXPENDITURE_FIELDS = [
+  { k: "wages", l: "Wages & Labour (paid workers) / मजदूरी व श्रम (भुगतान किए गए श्रमिक)" }, { k: "familyLabour", l: "Family Labour (imputed value) / पारिवारिक श्रम (अनुमानित मूल्य)" },
+  { k: "rent", l: "Rent of Business Premises / व्यवसाय परिसर का किराया" }, { k: "electricity", l: "Electricity & Fuel / बिजली व ईंधन" }, { k: "maintenance", l: "Maintenance & Repairs / रखरखाव व मरम्मत" },
+  { k: "transport", l: "Transport & Delivery Charges / परिवहन व डिलीवरी शुल्क" }, { k: "packing", l: "Packing & Packaging / पैकिंग व पैकेजिंग" }, { k: "commission", l: "Commission to Agents / Middlemen / एजेंट/बिचौलियों को कमीशन" },
+  { k: "interestShgPaid", l: "Interest Paid to SHG on Loan / एसएचजी ऋण पर भुगतान किया गया ब्याज" }, { k: "interestBankPaid", l: "Interest Paid on Bank / Other Loans / बैंक/अन्य ऋण पर भुगतान किया गया ब्याज" },
+  { k: "bankCharges", l: "Bank Charges & Other Finance Costs / बैंक शुल्क व अन्य वित्त लागत" }, { k: "gstPaid", l: "GST / Taxes Paid / जीएसटी / भुगतान किया गया कर" }, { k: "depreciation", l: "Depreciation on Assets (estimated) / परिसंपत्तियों पर मूल्यह्रास (अनुमानित)" },
+  { k: "otherExp1", l: "Other Expenditure 1 / अन्य व्यय 1" }, { k: "otherExp2", l: "Other Expenditure 2 / अन्य व्यय 2" },
+];
+const CL_FIELDS = [
+  { k: "clBankLoanST", l: "Bank Loan Outstanding – Short Term / बकाया बैंक ऋण – अल्पकालिक" }, { k: "clCreditSuppliers", l: "Credit from Suppliers / आपूर्तिकर्ताओं से उधार" },
+  { k: "clAdvanceReceived", l: "Advance Received from Customers / ग्राहकों से प्राप्त अग्रिम" }, { k: "clGstPayable", l: "GST / Tax Payable / जीएसटी / देय कर" },
+  { k: "clInformalLoans", l: "Informal Loans – Family / Friends / अनौपचारिक ऋण – परिवार / मित्र" }, { k: "clOther", l: "Other Current Liabilities / अन्य चालू देनदारियां" },
+];
+const LTL_FIELDS = [{ k: "ltBankTermLoan", l: "Bank Term Loan Outstanding / बकाया बैंक टर्म लोन" }, { k: "ltOther", l: "Other Long-Term Liabilities / अन्य दीर्घकालिक देनदारियां" }];
+const CA_FIELDS = [
+  { k: "cashInHand", l: "Cash in Hand / हाथ में नकद" }, { k: "cashInBank", l: "Cash in Bank – Own SB A/c / बैंक में नकद – स्वयं का बचत खाता" }, { k: "fdRdAsset", l: "FD / RD with Bank / बैंक में एफडी / आरडी" },
+  { k: "advancePaidSuppliers", l: "Advance Paid to Suppliers / आपूर्तिकर्ताओं को दिया गया अग्रिम" }, { k: "debtors", l: "Debtors – Credit Given to Customers / देनदार – ग्राहकों को दिया गया उधार" },
+  { k: "rawMaterialStock", l: "Value of Raw Material Stock / कच्चे माल स्टॉक का मूल्य" }, { k: "finishedGoodsStock", l: "Value of Finished Goods Stock / तैयार माल स्टॉक का मूल्य" }, { k: "otherCA", l: "Other Current Assets / अन्य चालू परिसंपत्तियां" },
+];
+const FA_FIELDS = [
+  { k: "landBuilding", l: "Land & Building / भूमि व भवन" }, { k: "plantMachinery", l: "Plant & Machinery / संयंत्र व मशीनरी" }, { k: "toolsEquipment", l: "Tools & Small Equipment / औजार व छोटे उपकरण" },
+  { k: "furniture", l: "Furniture & Fixtures / फर्नीचर व फिक्सचर" }, { k: "vehicle", l: "Two-Wheeler / Delivery Vehicle / दोपहिया / डिलीवरी वाहन" }, { k: "otherFA", l: "Other Fixed Assets / अन्य स्थायी परिसंपत्तियां" },
+];
+const OA_FIELDS = [{ k: "securityDeposits", l: "Security Deposits Paid / जमा की गई सुरक्षा राशि" }, { k: "otherAssets", l: "Other Assets / अन्य परिसंपत्तियां" }];
+
+const K1_FIELDS = [
+  { k: "totalMembers", l: "Total Family Members / कुल पारिवारिक सदस्य", type: "number", prefix: "#" }, { k: "earningMembers", l: "Earning Members / कमाने वाले सदस्य", type: "number", prefix: "#" },
+  { k: "existingHhLoan", l: "Any Existing Household Loan / कोई मौजूदा घरेलू ऋण", type: "select", opts: ["No", "Yes"] }, { k: "hhLoanDetail", l: "If Yes – Type & Amount / यदि हां – प्रकार व राशि", type: "text" },
+  { k: "houseType", l: "Type of House / घर का प्रकार", type: "select", opts: ["Pucca", "Semi-Pucca", "Kutcha"] }, { k: "bplApl", l: "BPL / APL Category / बीपीएल / एपीएल श्रेणी", type: "select", opts: ["APL", "BPL"] },
+];
+const K2_INCOME_FIELDS = [
+  { k: "wagesSalary", l: "Wages & Salary (all earning members) / मजदूरी व वेतन (सभी कमाने वाले सदस्य)" }, { k: "farmingIncome", l: "Farming Income / कृषि आय" }, { k: "livestockIncome", l: "Livestock Income / पशुधन आय" },
+  { k: "rentalIncome", l: "Rental Income / किराया आय" }, { k: "govtTransfers", l: "Govt Transfers / DBT / Pension / सरकारी हस्तांतरण / डीबीटी / पेंशन" }, { k: "remittances", l: "Remittances from Family Members / परिवार के सदस्यों से प्रेषण" },
+  { k: "otherIncome1", l: "Other Income 1 / अन्य आय 1" }, { k: "otherIncome2", l: "Other Income 2 / अन्य आय 2" },
+];
+const K2_EXPENDITURE_FIELDS = [
+  { k: "housing", l: "Housing & Utilities (rent, water, electricity) / आवास व उपयोगिताएं (किराया, पानी, बिजली)" }, { k: "food", l: "Food & Essential Groceries / भोजन व आवश्यक किराना" },
+  { k: "transport", l: "Transport & Communication / परिवहन व संचार" }, { k: "education", l: "Education (fees, books, uniform) / शिक्षा (फीस, किताबें, वर्दी)" },
+  { k: "medical", l: "Medical & Health Expenses / चिकित्सा व स्वास्थ्य व्यय" }, { k: "social", l: "Social / Religious / Festival Expenses / सामाजिक / धार्मिक / त्योहार व्यय" }, { k: "otherExpenses", l: "Other Expenses / अन्य व्यय" },
+];
+
+function NumRow({ f, obj, setObj }) {
+  return (
+    <label className="flex items-center justify-between gap-3 py-1.5 border-b border-stone-200 last:border-0">
+      <span className="text-sm text-stone-800 flex-1">{f.l}</span>
+      <input
+        type="number"
+        value={obj[f.k]}
+        onChange={(e) => setObj({ ...obj, [f.k]: e.target.value })}
+        className="w-28 px-2 py-1 border border-stone-400 rounded-md bg-white outline-none focus:ring-2 focus:ring-amber-600 font-mono text-sm text-right"
+        placeholder="0"
+      />
+    </label>
+  );
+}
+function NumList({ fields, obj, setObj, extraRow }) {
+  return (
+    <div className="bg-white rounded-lg border border-stone-300 px-3">
+      {fields.map((f) => <NumRow key={f.k} f={f} obj={obj} setObj={setObj} />)}
+      {extraRow && (
+        <div className="flex items-center justify-between gap-3 py-1.5 bg-red-50 -mx-3 px-3">
+          <span className="text-sm text-stone-800 flex-1">{extraRow.label}</span>
+          <span className="text-sm font-mono font-semibold text-red-700">{extraRow.value}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------- guide chatbot (fully offline — no API calls) ----------------
+const SUGGESTED_QUESTIONS = {
+  0: ["Why do I need Aadhaar and PAN?", "What if a document is not ready yet?", "Why is some text red?"],
+  1: ["What's the difference between Working Capital and Term Loan?", "How is margin money decided?", "Why isn't Loan Amount the same as material cost?"],
+  2: ["Why doesn't my balance sheet tally?", "What counts as family labour?", "Should I fill Daily Sale or Monthly Sale?"],
+  3: ["Why do the projection numbers change with growth %?", "What growth rate is realistic?"],
+  4: ["What should I include in household expenses?", "What is BPL/APL category?", "Why does business profit count as household income?"],
+  5: ["What does DSCR mean?", "What does FOIR mean?", "How is the maximum eligible loan calculated?", "What is the Tandon method?"],
+  6: ["What does 'Recommend with Conditions' mean?", "How can I improve my chances of approval?", "Are there any issues with my data?"],
+};
+
+// Knowledge base: each entry is checked in order; first keyword match wins.
+const CHAT_KB = [
+  { k: ["aadhaar", "pan card", "kyc", "why do i need"], a: "Aadhaar, PAN, and the other KYC documents confirm the applicant's identity and are required by the bank before it can sanction any loan. If a document isn't ready yet, mark it 'Pending' in the Documents Checklist (Step 1) — you can still continue filling the rest of the form." },
+  { k: ["red", "auto", "why is some text"], a: "Any field or value shown in red is calculated automatically from other entries — you don't need to type those yourself. For example, Avg Monthly Sale turns red once you enter Daily Sale, because it's computed from it." },
+  { k: ["working capital", "term loan", "wc vs", "difference between"], a: "Working Capital covers day-to-day running costs (stock, raw material) that get recovered as you sell — it's short-term and revolving. A Term Loan funds a one-time purchase like machinery or a shop asset, repaid over a fixed period. Fill F2 for Working Capital details and F3 for Term Loan details." },
+  { k: ["margin money", "margin", "10%"], a: "Margin Money is the portion of the project cost the applicant/SHG contributes themselves — usually a minimum of 10%. Loan Amount = Total Project Cost − Margin Money. The app auto-suggests both once you enter the material/asset cost in F2/F3." },
+  { k: ["material cost", "loan amount same", "quoted price"], a: "The Loan Amount should never equal the full cost of material or the asset being purchased — margin money has to come from the applicant. If you see a warning about this in Checks, it means the requested loan looks too close to the full cost." },
+  { k: ["balance sheet", "tally", "owner's capital", "owners capital"], a: "Owner's Capital = Total Assets − Total Liabilities other than capital. Because of this formula, the balance sheet always tallies by construction — Owner's Capital is the balancing figure. If it comes out negative, that's a real warning sign (liabilities exceed assets), which shows up in Checks." },
+  { k: ["family labour", "family labor"], a: "Family Labour is the imputed value of unpaid work done by family members in the business — even though no wage is actually paid, it's still a real cost of running the business and should be estimated and included." },
+  { k: ["daily sale", "monthly sale"], a: "Fill either one — whichever is easier for you. If you enter Daily Sale, Avg Monthly Sale is calculated automatically (shown in red). If Daily Sale is left blank, a direct Avg Monthly Sale field appears for you to fill instead." },
+  { k: ["growth", "projection", "growth rate"], a: "The growth % you enter for Year 2 and Year 3 projects how much Sales and Operating Expenditure might increase. A realistic rate is usually 10-20% for a stable small business — very high rates (40%+) make the projection unreliable, so keep it conservative unless there's a clear reason (like a big new loan-funded expansion) to expect faster growth." },
+  { k: ["household expense", "hh expense"], a: "Include housing/utilities, food & groceries, transport, education, medical, and social/festival expenses. Don't include business expenses here — those belong in the Financials step." },
+  { k: ["bpl", "apl"], a: "BPL (Below Poverty Line) and APL (Above Poverty Line) are government income categories used to classify households for various welfare schemes — select whichever applies to this household." },
+  { k: ["business profit", "profit count", "household income"], a: "Net Profit from the business is added into Household Income (as a red, auto-calculated row) because that profit is real cash available to the household — it directly affects how much loan EMI the family can actually afford." },
+  { k: ["dscr"], a: "DSCR (Debt Service Coverage Ratio) shows how many times over the household's available surplus can cover its total EMI obligations. A DSCR of 1.2 or higher is generally considered safe; below that, repayment capacity is tight." },
+  { k: ["foir"], a: "FOIR (Fixed Obligation to Income Ratio) is the percentage of monthly income already committed to EMIs. Banks typically prefer this to stay under 50% — above that, the household is over-leveraged." },
+  { k: ["maximum eligible loan", "max eligible", "how is the maximum"], a: "Maximum Eligible Loan works backward from Safe EMI Capacity (50% of the surplus left after existing EMIs) — it's the largest loan that capacity could repay at the chosen interest rate and tenure, using the standard EMI formula." },
+  { k: ["tandon"], a: "The Tandon Committee method estimates working capital eligibility from the Balance Sheet: Method I takes 75% of the Working Capital Gap (Current Assets − Current Liabilities excluding bank borrowings); Method II takes 75% of Current Assets minus those liabilities. Both require the applicant to fund at least 25% from long-term sources." },
+  { k: ["turnover method", "nayak"], a: "The Turnover Method (Nayak Committee) is simpler and used for smaller loans: Working Capital need = 25% of projected annual turnover, with the borrower contributing a 5% margin and the bank financing 20% of turnover." },
+  { k: ["recommend with conditions", "not recommended", "recommendation mean"], a: "'Recommend' means the loan fits comfortably within repayment capacity. 'Recommend with Conditions' means it's close to the limit — a bank might ask for a longer tenure or more margin. 'Not Recommended' means the requested amount clearly exceeds what the household/business can safely repay." },
+  { k: ["improve", "chances of approval", "increase eligibility"], a: "To improve eligibility: increase own contribution/margin money, reduce the loan amount toward the Maximum Eligible Loan figure, extend the tenure to lower the EMI, or reduce household/business expenses to raise surplus." },
+  { k: ["share", "pdf", "print"], a: "On the Report step: 'Share' sends a text summary via your phone's share sheet (or copies it if that's unavailable), 'Share PDF' generates and shares an actual PDF file, and 'Print Report' uses your browser's print/Save-as-PDF option. 'Save Submission' keeps a summary on this device only." },
+  { k: ["mic", "voice", "speak"], a: "Tap the mic icon next to the chat input to speak your question instead of typing — it uses your browser's built-in voice recognition. If your device doesn't support it, you'll see a message and can just type instead." },
+  { k: ["stuck", "next button", "won't move", "not going"], a: "The Next button always works now — it never gets permanently blocked. If required fields are empty, you'll see a small reminder above the button, but you can still continue and fill them later." },
+  { k: ["document", "checklist"], a: "The Documents Checklist (Step 1, Section C) lists KYC and supporting papers needed for the loan file. Mark each as Collected, Pending, or Not Applicable — pending mandatory documents show up under Checks." },
+  { k: ["sample data", "dummy data", "test data"], a: "Tap 'Load Sample Data' at the top of the Identity step (Step 1) to fill the whole form with a realistic example so you can see how everything works end-to-end." },
+  { k: ["bpm", "submission", "save submission"], a: "'Save Submission' on the Report step saves a summary of this application on this device, viewable later under the Submissions icon (👥) in the header. It does not send data anywhere else automatically — use 'Share' or 'Share PDF' to actually send it to someone." },
+  { k: ["api", "internet", "offline"], a: "This assistant works fully offline — it answers from a built-in knowledge base, with no internet connection or API key needed." },
+];
+
+function findLocalAnswer(question, issues) {
+  const q = question.toLowerCase();
+
+  // Questions about data problems/discrepancies pull live from the Checks engine.
+  if (/(difference|discrepanc|mismatch|wrong|error|issue|problem|check my data|any issues|data correct|consistent)/.test(q)) {
+    if (!issues || issues.length === 0) {
+      return "I checked your data — no issues found right now. Figures are consistent and mandatory fields look complete. (You can always open the clipboard ✓ icon in the header for the full Checks list.)";
+    }
+    const top = issues.slice(0, 5);
+    const lines = top.map((iss, i) => `${i + 1}. ${iss.title} — ${iss.fix}`);
+    const more = issues.length > 5 ? `\n…and ${issues.length - 5} more. See the clipboard ✓ icon in the header for the full list.` : "";
+    return `I found ${issues.length} thing${issues.length > 1 ? "s" : ""} worth checking:\n\n${lines.join("\n")}${more}`;
+  }
+
+  for (const entry of CHAT_KB) {
+    if (entry.k.some((kw) => q.includes(kw))) return entry.a;
+  }
+
+  return "I don't have a ready answer for that in offline mode — try asking about margin money, DSCR/FOIR, the balance sheet, working capital methods, sharing/printing, or tap 'Are there any issues with my data?' to check your figures. You can also browse the clipboard ✓ (Checks) or the field help icons (?) around the form.";
+}
+
+function ChatWidget({ open, onClose, contextSummary, step, issues }) {
+  const [messages, setMessages] = useState([
+    { role: "assistant", text: "Namaste! I can help you understand this form and check your data — fully offline, no internet needed. Ask me anything, by typing or tapping the mic to speak." },
+  ]);
+  const [input, setInput] = useState("");
+  const [listening, setListening] = useState(false);
+  const [error, setError] = useState("");
+  const recognitionRef = useRef(null);
+
+  function toggleMic() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      setError("Voice input isn't supported on this browser — please type your question instead.");
+      return;
+    }
+    if (listening) {
+      recognitionRef.current && recognitionRef.current.stop();
+      setListening(false);
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "en-IN";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInput((prev) => (prev ? prev + " " : "") + transcript);
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    setError("");
+    setListening(true);
+    rec.start();
+  }
+
+  function send(text) {
+    const q = (text || input).trim();
+    if (!q) return;
+    const answer = findLocalAnswer(q, issues);
+    setMessages((cur) => [...cur, { role: "user", text: q }, { role: "assistant", text: answer }]);
+    setInput("");
+  }
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40 no-print flex items-end justify-center sm:items-center">
+      <div className="absolute inset-0 bg-black bg-opacity-30" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden" style={{ height: "80vh" }}>
+        <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon name="chat" size={18} className="text-amber-400" />
+            <span className="serif font-bold text-sm">Ask the Credit Advisor</span>
+          </div>
+          <button onClick={onClose}><Icon name="close" size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+          {messages.map((m, i) => (
+            <div key={i} className={`max-w-xs rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-emerald-900 text-stone-50 ml-auto" : "bg-white border border-stone-300 text-emerald-900"}`}>
+              {m.text}
+            </div>
+          ))}
+          {error && <Banner tone="danger">{error}</Banner>}
+        </div>
+        <div className="px-3 pb-2 flex gap-2 flex-wrap">
+          {(SUGGESTED_QUESTIONS[step] || []).map((q) => (
+            <button key={q} onClick={() => send(q)} className="text-xs px-2 py-1 rounded-full border border-stone-400 text-stone-600 bg-white hover:bg-stone-200">
+              {q}
+            </button>
+          ))}
+        </div>
+        <div className="border-t border-stone-300 p-2 flex gap-2 bg-white">
+          <button
+            onClick={toggleMic}
+            className={`px-3 py-2 rounded-md ${listening ? "bg-red-600 text-white animate-pulse" : "bg-stone-200 text-emerald-900"}`}
+            aria-label={listening ? "Stop listening" : "Speak your question"}
+          >
+            {listening ? <Icon name="mic_off" size={16} /> : <Icon name="mic" size={16} />}
+          </button>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && send()}
+            placeholder={listening ? "Listening…" : "Ask a question or tap the mic…"}
+            className="flex-1 px-3 py-2 rounded-md border border-stone-400 outline-none text-sm"
+          />
+          <button onClick={() => send()} className="px-3 py-2 rounded-md bg-amber-600 text-white">
+            <Icon name="send" size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- diagnostics / discrepancy panel ----------------
+function DiagnosticsPanel({ open, onClose, issues }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40 no-print flex items-end justify-center sm:items-center">
+      <div className="absolute inset-0 bg-black bg-opacity-30" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden" style={{ maxHeight: "80vh" }}>
+        <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon name="checklist" size={18} className="text-amber-400" />
+            <span className="serif font-bold text-sm">Checks & Discrepancies</span>
+          </div>
+          <button onClick={onClose}><Icon name="close" size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3">
+          {issues.length === 0 ? (
+            <Banner tone="ok">No issues found — figures are consistent and mandatory fields are complete.</Banner>
+          ) : (
+            issues.map((iss, i) => (
+              <div key={i} className="bg-white border border-stone-300 rounded-lg p-3 mb-3">
+                <Banner tone={iss.tone}>{iss.title}</Banner>
+                <p className="text-xs text-stone-600 mb-1">{iss.detail}</p>
+                <p className="text-xs text-green-800"><span className="font-semibold">Fix: </span>{iss.fix}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- BPM submissions panel (shared persistent storage) ----------------
+function BPMPanel({ open, onClose, submissions, loading, error, onRefresh }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40 no-print flex items-end justify-center sm:items-center">
+      <div className="absolute inset-0 bg-black bg-opacity-30" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden" style={{ maxHeight: "80vh" }}>
+        <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon name="group" size={18} className="text-amber-400" />
+            <span className="serif font-bold text-sm">Submissions (saved on this device)</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onRefresh} aria-label="Refresh"><Icon name="refresh" size={16} className={loading ? "animate-spin" : ""} /></button>
+            <button onClick={onClose}><Icon name="close" size={18} /></button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3">
+          <Banner tone="warn">This standalone version saves submissions only on this device/browser (no server). To send a submission to someone else, use "Share" or "Share PDF" on the Report step instead.</Banner>
+          {error && <Banner tone="danger">{error}</Banner>}
+          {!loading && submissions.length === 0 && !error && (
+            <Banner tone="ok">No submissions saved on this device yet. Use "Save Submission" on the Report step to add one.</Banner>
+          )}
+          {submissions.map((s) => (
+            <div key={s.id} className="bg-white border border-stone-300 rounded-lg p-3 mb-3 text-sm">
+              <div className="flex justify-between items-start mb-1">
+                <div>
+                  <p className="font-semibold text-emerald-900">{s.enterpriseName || "Enterprise"}</p>
+                  <p className="text-xs text-stone-600">{s.memberName} · {s.shgName}</p>
+                </div>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                    s.tone === "ok" ? "bg-green-100 text-green-800" : s.tone === "warn" ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-800"
+                  }`}
+                >
+                  {s.recommendation}
+                </span>
+              </div>
+              <Row label="Loan Requested" value={inr(s.loanReq)} />
+              <Row label="Max Eligible Loan" value={inr(s.maxEligibleLoan)} />
+              <Row label="DSCR / FOIR" value={`${s.dscr?.toFixed ? s.dscr.toFixed(2) : s.dscr} / ${pct(s.foir)}`} last />
+              <p className="text-xs text-stone-500 mt-1">Submitted {new Date(s.submittedAt).toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [step, setStep] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [bpmOpen, setBpmOpen] = useState(false);
+  const [submissions, setSubmissions] = useState([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [submissionsError, setSubmissionsError] = useState("");
+  const [submitStatus, setSubmitStatus] = useState("");
+
+  const [identity, setIdentity] = useState(Object.fromEntries([...SHG_FIELDS, ...MEMBER_FIELDS].map((f) => [f.k, ""])));
+  const [documents, setDocuments] = useState(Object.fromEntries(DOCUMENTS.map((d) => [d.k, { status: "Pending", remarks: "" }])));
+
+  const [enterprise, setEnterprise] = useState(Object.fromEntries(ENTERPRISE_FIELDS.map((f) => [f.k, ""])));
+  const [credit, setCredit] = useState(Object.fromEntries(CREDIT_HISTORY_FIELDS.map((f) => [f.k, ""])));
+  const [loanF, setLoanF] = useState({
+    totalProjectCost: "", marginMoney: "", loanRequested: "",
+    ...Object.fromEntries(F1_FIELDS.map((f) => [f.k, f.k === "tenureMonths" ? 36 : f.k === "interestRate" ? 12 : ""])),
+  });
+  const [wc, setWc] = useState(Object.fromEntries(F2_FIELDS.map((f) => [f.k, ""])));
+  const [tl, setTl] = useState(Object.fromEntries(F3_FIELDS.map((f) => [f.k, ""])));
+
+  const [h1, setH1] = useState({
+    high: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
+    low: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
+    avg: { months: 6, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
+  });
+  const [h2, setH2] = useState(Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])));
+  const [govtSubsidy, setGovtSubsidy] = useState("");
+  const [h3, setH3] = useState(
+    Object.fromEntries([...CL_FIELDS, ...LTL_FIELDS, ...CA_FIELDS, ...FA_FIELDS, ...OA_FIELDS].map((f) => [f.k, ""]))
+  );
+  const [drawings, setDrawings] = useState("");
+
+  const [proj, setProj] = useState({ growthSalesY2: 20, growthSalesY3: 15, growthOpexY2: 15, growthOpexY3: 12, growthEmployeesY2: 50, growthEmployeesY3: 0 });
+
+  const [k1, setK1] = useState(Object.fromEntries(K1_FIELDS.map((f) => [f.k, ""])));
+  const [hhInc, setHhInc] = useState(Object.fromEntries(K2_INCOME_FIELDS.map((f) => [f.k, ""])));
+  const [hhExp, setHhExp] = useState(Object.fromEntries(K2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])));
+
+  const [emiL1, setEmiL1] = useState({ monthlyHHIncomeOverride: "", monthlyHHExpenditureOverride: "", existingEmiBankOverride: "" });
+  const [projectedTurnoverOverride, setProjectedTurnoverOverride] = useState("");
+
+  // ---------------- autofill: pre-populate fields once the source data is available, without overwriting user edits ----------------
+  useEffect(() => {
+    if (!enterprise.districtState && (identity.district || identity.state)) {
+      setEnterprise((e) => (e.districtState ? e : { ...e, districtState: [identity.district, identity.state].filter(Boolean).join(", ") }));
+    }
+  }, [identity.district, identity.state]);
+
+  // Total Project Cost = cost of material/asset actually needed (Quoted Price + WC Required) — NOT the loan amount itself.
+  useEffect(() => {
+    const materialCost = num(tl.quotedPrice) + num(wc.totalWcRequired);
+    if (materialCost > 0 && loanF.totalProjectCost === "") {
+      setLoanF((l) => (l.totalProjectCost !== "" ? l : { ...l, totalProjectCost: Math.round(materialCost) }));
+    }
+  }, [tl.quotedPrice, wc.totalWcRequired]);
+
+  useEffect(() => {
+    if (loanF.totalProjectCost !== "" && loanF.marginMoney === "") {
+      setLoanF((l) => (l.marginMoney !== "" ? l : { ...l, marginMoney: Math.round(num(l.totalProjectCost) * 0.1) }));
+    }
+  }, [loanF.totalProjectCost]);
+
+  useEffect(() => {
+    if (loanF.totalProjectCost !== "" && loanF.marginMoney !== "" && loanF.loanRequested === "") {
+      setLoanF((l) => (l.loanRequested !== "" ? l : { ...l, loanRequested: Math.max(Math.round(num(l.totalProjectCost) - num(l.marginMoney)), 0) }));
+    }
+  }, [loanF.totalProjectCost, loanF.marginMoney]);
+
+  useEffect(() => {
+    if (tl.quotedPrice !== "" && tl.tlAmount === "") {
+      setTl((t) => (t.tlAmount !== "" ? t : { ...t, tlAmount: Math.round(num(t.quotedPrice) * 0.9) }));
+    }
+  }, [tl.quotedPrice]);
+
+  // ---------------- calculations ----------------
+  const calc = useMemo(() => {
+    // H1 sales & purchases
+    const rows = ["high", "low", "avg"].map((key) => {
+      const r = h1[key];
+      const avgMonthlySale = r.dailySale !== "" ? num(r.dailySale) * 30 : num(r.avgMonthlySaleManual);
+      const salesForPeriod = avgMonthlySale * num(r.months);
+      const avgMonthlyPurchases = avgMonthlySale * (1 - num(r.margin) / 100);
+      const totalPurchases = avgMonthlyPurchases * num(r.months);
+      const totalOtherIncome = num(r.otherInc) * num(r.months);
+      return { key, months: num(r.months), avgMonthlySale, salesForPeriod, totalPurchases, totalOtherIncome };
+    });
+    const totalMonths = sum(...rows.map((r) => r.months));
+    const totalSales = sum(...rows.map((r) => r.salesForPeriod));
+    const totalPurchases = sum(...rows.map((r) => r.totalPurchases));
+    const totalOtherIncome = sum(...rows.map((r) => r.totalOtherIncome));
+    const avgMonthlySaleTotal = totalMonths ? totalSales / totalMonths : 0;
+    const blendedMargin = totalSales ? ((totalSales - totalPurchases) / totalSales) * 100 : 0;
+
+    // H2 income & expenditure
+    const expenditureSum = sum(...Object.values(h2));
+    const totalExpenditure = totalPurchases + expenditureSum;
+    const totalIncome = totalSales + totalOtherIncome + num(govtSubsidy);
+    const netProfit = totalIncome - totalExpenditure;
+    const netMargin = totalSales ? (netProfit / totalSales) * 100 : 0;
+    const grossProfit = totalSales - totalPurchases;
+    const grossMargin = totalSales ? (grossProfit / totalSales) * 100 : 0;
+    const avgMonthlyNetProfit = netProfit / 12;
+
+    // H3 balance sheet
+    const totalCL = sum(num(credit.shgLoanOutstanding), ...CL_FIELDS.map((f) => h3[f.k]));
+    const totalLTL = sum(...LTL_FIELDS.map((f) => h3[f.k]));
+    const totalCA = sum(num(credit.cumulativeShgSavings), ...CA_FIELDS.map((f) => h3[f.k]));
+    const totalFA = sum(...FA_FIELDS.map((f) => h3[f.k]));
+    const totalOA = sum(...OA_FIELDS.map((f) => h3[f.k]));
+    const totalAssets = totalCA + totalFA + totalOA;
+    // Owner's Capital = Total Assets − Total Liabilities other than capital (i.e. other than net worth)
+    const ownersCapital = totalAssets - totalCL - totalLTL;
+    const totalNetWorth = ownersCapital;
+    const totalLiabilities = totalCL + totalLTL + totalNetWorth;
+    const balances = Math.round(totalAssets) === Math.round(totalLiabilities); // true by construction — capital is the plug
+
+    // Working Capital Assessment — Tandon Committee method (Method I & II) + Turnover method (Nayak Committee)
+    const clBankBorrowings = num(h3.clBankLoanST) + num(credit.shgLoanOutstanding);
+    const clOtherThanBankBorrowings = totalCL - clBankBorrowings;
+    const workingCapitalGap = totalCA - clOtherThanBankBorrowings;
+    const tandonMethod1Mpbf = Math.max(workingCapitalGap, 0) * 0.75;
+    const tandonMethod1Nwc = Math.max(workingCapitalGap, 0) * 0.25;
+    const tandonMethod2Mpbf = Math.max(totalCA * 0.75 - clOtherThanBankBorrowings, 0);
+    const tandonMethod2Nwc = totalCA * 0.25;
+
+    const projectedTurnover = projectedTurnoverOverride !== "" ? num(projectedTurnoverOverride) : totalSales;
+    const turnoverWcRequirement = projectedTurnover * 0.25;
+    const turnoverMargin = projectedTurnover * 0.05;
+    const turnoverBankFinance = projectedTurnover * 0.20;
+
+    // Projections (recomputed correctly — see note to user about the original template's disconnected formulas)
+    const opexY1 = totalExpenditure - totalPurchases; // operating expenditure excl. purchases
+    const salesY2 = totalSales * (1 + proj.growthSalesY2 / 100);
+    const salesY3 = salesY2 * (1 + proj.growthSalesY3 / 100);
+    const opexY2 = opexY1 * (1 + proj.growthOpexY2 / 100);
+    const opexY3 = opexY2 * (1 + proj.growthOpexY3 / 100);
+    const purchasesY2 = salesY2 * (1 - blendedMargin / 100);
+    const purchasesY3 = salesY3 * (1 - blendedMargin / 100);
+    const annualEmi = num(loanF.proposedEmi) * 12;
+    const netProfitY1 = netProfit;
+    const netProfitY2 = salesY2 - purchasesY2 - opexY2;
+    const netProfitY3 = salesY3 - purchasesY3 - opexY3;
+
+    // Household
+    const hhIncomeTotal = sum(...K2_INCOME_FIELDS.map((f) => hhInc[f.k]));
+    const businessProfitLinked = Math.max(avgMonthlyNetProfit * 12, 0);
+    const hhIncomeTotalWithBiz = hhIncomeTotal + businessProfitLinked;
+    const hhExpTotal = sum(...K2_EXPENDITURE_FIELDS.map((f) => hhExp[f.k])) + num(credit.shgEmi) * 12 + num(credit.bankLoanEmi) * 12;
+    const householdSurplusAnnual = hhIncomeTotalWithBiz - hhExpTotal;
+    const monthlyHHIncome = hhIncomeTotalWithBiz / 12;
+    const monthlyHHExpenditure = hhExpTotal / 12;
+    const monthlyHouseholdSurplus = householdSurplusAnnual / 12;
+
+    // K3 EMI schedule
+    const totalMonthlyEmi = num(credit.shgEmi) + num(credit.bankLoanEmi) + num(loanF.proposedEmi);
+    const netCashSurplusAfterAllEmis = monthlyHouseholdSurplus - num(loanF.proposedEmi);
+
+    // EMI Feasibility (Sheet 6)
+    const emiMonthlyHHIncome = emiL1.monthlyHHIncomeOverride !== "" ? num(emiL1.monthlyHHIncomeOverride) : monthlyHHIncome;
+    const emiMonthlyHHExpenditureExclEmi = monthlyHHExpenditure - num(credit.shgEmi) - num(credit.bankLoanEmi);
+    const emiMonthlyHHExpenditure = emiL1.monthlyHHExpenditureOverride !== "" ? num(emiL1.monthlyHHExpenditureOverride) : emiMonthlyHHExpenditureExclEmi;
+    const existingEmiBank = emiL1.existingEmiBankOverride !== "" ? num(emiL1.existingEmiBankOverride) : num(credit.bankLoanEmi);
+    const existingEmiShg = num(credit.shgEmi);
+    const totalExistingEmi = existingEmiShg + existingEmiBank;
+
+    const calculatedEmi = pmt(loanF.loanRequested, loanF.interestRate, loanF.tenureMonths);
+    const surplusBeforeNewEmi = emiMonthlyHHIncome - emiMonthlyHHExpenditure - totalExistingEmi;
+    const surplusAfterNewEmi = surplusBeforeNewEmi - calculatedEmi;
+    const safeEmiCapacity = Math.max(surplusBeforeNewEmi, 0) * 0.5;
+    const maxEligibleLoan = maxLoanFromEmi(safeEmiCapacity, loanF.interestRate, loanF.tenureMonths);
+    const minTenureMonths = minTenure(loanF.loanRequested, loanF.interestRate, safeEmiCapacity);
+
+    const foir = emiMonthlyHHIncome ? ((totalExistingEmi + calculatedEmi) / emiMonthlyHHIncome) * 100 : 0;
+    const dscr = (totalExistingEmi + calculatedEmi) ? (surplusBeforeNewEmi + calculatedEmi + totalExistingEmi) / (totalExistingEmi + calculatedEmi) : 0;
+
+    let recommendation = "Not Recommended";
+    let tone = "danger";
+    const loanReq = num(loanF.loanRequested);
+    if (loanReq > 0 && loanReq <= maxEligibleLoan) { recommendation = "Recommend"; tone = "ok"; }
+    else if (loanReq <= maxEligibleLoan * 1.1) { recommendation = "Recommend with Conditions"; tone = "warn"; }
+
+    return {
+      rows, totalSales, totalPurchases, totalOtherIncome, avgMonthlySaleTotal, blendedMargin,
+      totalExpenditure, totalIncome, netProfit, netMargin, grossProfit, grossMargin, avgMonthlyNetProfit,
+      totalCL, totalLTL, totalCA, totalFA, totalOA, totalAssets, ownersCapital, totalNetWorth, totalLiabilities, balances,
+      clOtherThanBankBorrowings, workingCapitalGap, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
+      projectedTurnover, turnoverWcRequirement, turnoverMargin, turnoverBankFinance,
+      salesY2, salesY3, opexY2, opexY3, purchasesY2, purchasesY3, netProfitY1, netProfitY2, netProfitY3, annualEmi,
+      hhIncomeTotalWithBiz, hhExpTotal, householdSurplusAnnual, monthlyHHIncome, monthlyHHExpenditure, monthlyHouseholdSurplus,
+      totalMonthlyEmi, netCashSurplusAfterAllEmis,
+      calculatedEmi, surplusBeforeNewEmi, surplusAfterNewEmi, safeEmiCapacity, maxEligibleLoan, minTenureMonths,
+      foir, dscr, recommendation, tone, loanReq, totalExistingEmi, existingEmiShg, existingEmiBank, emiMonthlyHHExpenditureExclEmi,
+    };
+  }, [h1, h2, govtSubsidy, h3, drawings, credit, proj, loanF, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
+
+  // Auto-suggest the proposed EMI from the PMT calculation once loan terms are entered (still overridable)
+  useEffect(() => {
+    if (loanF.proposedEmi === "" && calc.calculatedEmi > 0) {
+      setLoanF((l) => (l.proposedEmi !== "" ? l : { ...l, proposedEmi: Math.round(calc.calculatedEmi) }));
+    }
+  }, [calc.calculatedEmi]);
+
+  async function loadSubmissions() {
+    setSubmissionsLoading(true);
+    setSubmissionsError("");
+    try {
+      const listRes = await LocalStore.list("submissions:");
+      const keys = listRes?.keys || [];
+      const items = [];
+      for (const key of keys) {
+        try {
+          const res = await LocalStore.get(key);
+          if (res?.value) items.push(JSON.parse(res.value));
+        } catch (e) {
+          // skip unreadable entry
+        }
+      }
+      items.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+      setSubmissions(items);
+    } catch (e) {
+      setSubmissionsError("Couldn't load submissions. Please try refreshing.");
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  }
+
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [shareStatus, setShareStatus] = useState("");
+
+  function buildReportText() {
+    return [
+      "IELA Credit Advisor — Business Analysis & Bank Loan Assessment",
+      `${enterprise.enterpriseName || "Enterprise"} — ${identity.memberName || "Member"} (${identity.shgName || "SHG"})`,
+      "",
+      `Annual Sales: ${inr(calc.totalSales)}`,
+      `Net Profit: ${inr(calc.netProfit)}`,
+      `Owner's Capital: ${inr(calc.ownersCapital)}`,
+      `Total Project Cost: ${inr(num(loanF.totalProjectCost))}  Margin: ${inr(num(loanF.marginMoney))}`,
+      `Loan Requested: ${inr(calc.loanReq)}`,
+      `Max Eligible Loan: ${inr(calc.maxEligibleLoan)}`,
+      `DSCR: ${calc.dscr.toFixed(2)}   FOIR: ${pct(calc.foir)}`,
+      `Recommendation: ${calc.recommendation}`,
+    ].join("\n");
+  }
+
+  async function shareAsText() {
+    setShareStatus("");
+    const text = buildReportText();
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "IELA Credit Report", text });
+        setShareStatus("shared");
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return; // user cancelled the share sheet
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareStatus("copied");
+    } catch (e) {
+      setShareStatus("error");
+    }
+  }
+
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("script load failed"));
+      document.body.appendChild(s);
+    });
+  }
+
+  async function shareAsPdf() {
+    setPdfBusy(true);
+    setShareStatus("");
+    try {
+      if (!(window.jspdf && window.jspdf.jsPDF)) {
+        await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      }
+      if (!(window.jspdf && window.jspdf.jsPDF)) {
+        setShareStatus("pdf-unavailable");
+        return;
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const lines = buildReportText().split("\n");
+      let y = 15;
+      doc.setFontSize(13);
+      doc.text(lines[0], 10, y);
+      y += 8;
+      doc.setFontSize(11);
+      doc.text(lines[1], 10, y);
+      y += 10;
+      doc.setFontSize(10);
+      for (let i = 3; i < lines.length; i++) {
+        doc.text(lines[i], 10, y);
+        y += 7;
+      }
+      const blob = doc.output("blob");
+      const fileName = `${(enterprise.enterpriseName || "IELA-report").replace(/\s+/g, "_")}.pdf`;
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "IELA Credit Report", text: "Business analysis & bank loan assessment" });
+        setShareStatus("shared");
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setShareStatus("downloaded");
+      }
+    } catch (e) {
+      if (!(e && e.name === "AbortError")) setShareStatus("error");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
+  async function submitToBPM() {
+    setSubmitStatus("saving");
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const payload = {
+      id,
+      submittedAt: new Date().toISOString(),
+      shgName: identity.shgName,
+      memberName: identity.memberName,
+      enterpriseName: enterprise.enterpriseName,
+      loanReq: calc.loanReq,
+      maxEligibleLoan: calc.maxEligibleLoan,
+      totalProjectCost: num(loanF.totalProjectCost),
+      marginMoney: num(loanF.marginMoney),
+      netProfit: calc.netProfit,
+      ownersCapital: calc.ownersCapital,
+      dscr: calc.dscr,
+      foir: calc.foir,
+      recommendation: calc.recommendation,
+      tone: calc.tone,
+    };
+    try {
+      const res = await LocalStore.set(`submissions:${id}`, JSON.stringify(payload));
+      setSubmitStatus(res ? "saved" : "error");
+    } catch (e) {
+      setSubmitStatus("error");
+    }
+  }
+
+  function loadSampleData() {
+    setIdentity((i) => ({
+      ...i, shgName: "Jai Bhavani SHG", memberName: "Sunita Devi", fatherHusband: "Ramesh Devi",
+      district: "Wardha", state: "Maharashtra", bankName: "Bank of Maharashtra", branchName: "Wardha Main",
+      aadhaar: "XXXX-XXXX-1234", pan: "ABCDE1234F", mobile: "98765 43210", vittaSakhi: "Meena Tai",
+    }));
+    setEnterprise((e) => ({
+      ...e, enterpriseName: "Sunita General Store", enterpriseType: "Trading", activityType: "Grocery retail",
+      currentActivity: "Grocery & household goods retail", experience: 5, employees: 1, recordsAvailable: "Yes", recordsType: "Notebook ledger",
+    }));
+    setCredit((c) => ({
+      ...c, memberSince: 6, loansLast3Yrs: 3, lastLoanAmount: 15000, highestLoanEver: 20000,
+      shgLoanOutstanding: 18000, shgEmi: 1500, shgInterestRate: 12, cumulativeShgSavings: 22000,
+      bankLoanOutstanding: 0, bankLoanEmi: 0,
+    }));
+    setTl((t) => ({ ...t, tlPurpose: "Shop refrigerator & shelving", assetDescription: "Refrigerator + display shelving", newOrReplacement: "New Purchase", assetLife: 8, quotedPrice: 150000 }));
+    setWc((w) => ({ ...w, wcPurpose: "Stock purchase", totalWcRequired: 30000 }));
+    setH1({
+      high: { months: 3, dailySale: 1800, avgMonthlySaleManual: "", margin: 28, otherInc: 500 },
+      low: { months: 3, dailySale: 900, avgMonthlySaleManual: "", margin: 22, otherInc: 200 },
+      avg: { months: 6, dailySale: "", avgMonthlySaleManual: 42000, margin: 25, otherInc: 350 },
+    });
+    setH2((h) => ({
+      ...h, wages: 18000, familyLabour: 12000, rent: 14400, electricity: 6000, maintenance: 3600,
+      transport: 8400, packing: 4200, interestShgPaid: 3240, bankCharges: 600, depreciation: 4500, otherExp1: 2400,
+    }));
+    setGovtSubsidy(6000);
+    setH3((h) => ({
+      ...h, clCreditSuppliers: 8000, clInformalLoans: 10000, ltBankTermLoan: 150000,
+      cashInHand: 3500, cashInBank: 8500, fdRdAsset: 5000, debtors: 4200, rawMaterialStock: 18000, finishedGoodsStock: 12000,
+      plantMachinery: 150000, toolsEquipment: 6000, furniture: 6000, securityDeposits: 5000,
+    }));
+    setDrawings(6000);
+    setK1((k) => ({ ...k, totalMembers: 5, earningMembers: 2, existingHhLoan: "No", houseType: "Semi-Pucca", bplApl: "APL" }));
+    setHhInc((h) => ({ ...h, wagesSalary: 60000, farmingIncome: 24000, govtTransfers: 12000, otherIncome1: 6000 }));
+    setHhExp((h) => ({ ...h, housing: 42000, food: 60000, transport: 9600, education: 14400, medical: 7200, social: 6000, otherExpenses: 4800 }));
+  }
+
+  const [importError, setImportError] = useState("");
+  const [importOk, setImportOk] = useState(false);
+
+  function exportData() {
+    const payload = {
+      identity, documents, enterprise, credit, loanF, wc, tl, h1, h2, govtSubsidy, h3, drawings, proj, k1, hhInc, hhExp,
+      emiL1, projectedTurnoverOverride,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const fileName = `${(enterprise.enterpriseName || identity.memberName || "IELA-application").replace(/\s+/g, "_")}.json`;
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(file) {
+    setImportError("");
+    setImportOk(false);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.identity) setIdentity((cur) => ({ ...cur, ...data.identity }));
+        if (data.documents) setDocuments((cur) => ({ ...cur, ...data.documents }));
+        if (data.enterprise) setEnterprise((cur) => ({ ...cur, ...data.enterprise }));
+        if (data.credit) setCredit((cur) => ({ ...cur, ...data.credit }));
+        if (data.loanF) setLoanF((cur) => ({ ...cur, ...data.loanF }));
+        if (data.wc) setWc((cur) => ({ ...cur, ...data.wc }));
+        if (data.tl) setTl((cur) => ({ ...cur, ...data.tl }));
+        if (data.h1) setH1(data.h1);
+        if (data.h2) setH2((cur) => ({ ...cur, ...data.h2 }));
+        if (data.govtSubsidy !== undefined) setGovtSubsidy(data.govtSubsidy);
+        if (data.h3) setH3((cur) => ({ ...cur, ...data.h3 }));
+        if (data.drawings !== undefined) setDrawings(data.drawings);
+        if (data.proj) setProj((cur) => ({ ...cur, ...data.proj }));
+        if (data.k1) setK1((cur) => ({ ...cur, ...data.k1 }));
+        if (data.hhInc) setHhInc((cur) => ({ ...cur, ...data.hhInc }));
+        if (data.hhExp) setHhExp((cur) => ({ ...cur, ...data.hhExp }));
+        if (data.emiL1) setEmiL1((cur) => ({ ...cur, ...data.emiL1 }));
+        if (data.projectedTurnoverOverride !== undefined) setProjectedTurnoverOverride(data.projectedTurnoverOverride);
+        setImportOk(true);
+      } catch (err) {
+        setImportError("Couldn't read that file — make sure it's a JSON file exported from this app (via 'Export Data').");
+      }
+    };
+    reader.onerror = () => setImportError("Couldn't read that file.");
+    reader.readAsText(file);
+  }
+
+  const missingRequired = () => {
+    if (step === 0) return [!identity.shgName && "Name of SHG", !identity.memberName && "Member Name"].filter(Boolean);
+    if (step === 1) return [!enterprise.enterpriseName && "Enterprise Name", loanF.loanRequested === "" && "Loan Amount Requested"].filter(Boolean);
+    return [];
+  };
+
+  const issues = useMemo(() => {
+    const list = [];
+    const missingMandatory = MEMBER_FIELDS.filter((f) => f.mandatory && !identity[f.k]).map((f) => f.l);
+    if (missingMandatory.length)
+      list.push({ tone: "warn", title: "Missing mandatory member details", detail: `${missingMandatory.join(", ")} not filled in.`, fix: "Complete these fields in Step 1 (Identity) — required for KYC and bank submission." });
+
+    const pendingMandatoryDocs = DOCUMENTS.filter((d) => d.mandatory && documents[d.k].status !== "Collected").map((d) => d.l);
+    if (pendingMandatoryDocs.length)
+      list.push({ tone: "warn", title: "Mandatory documents not yet collected", detail: pendingMandatoryDocs.join(", "), fix: "Collect these before submitting the application to the bank." });
+
+    if (calc.ownersCapital < 0)
+      list.push({ tone: "danger", title: "Negative owner's capital", detail: `Total liabilities other than capital (${inr(calc.totalCL + calc.totalLTL)}) exceed total assets (${inr(calc.totalAssets)}) by ${inr(Math.abs(calc.ownersCapital))}.`, fix: "The business may be technically insolvent on paper. Re-check liability entries in Step 3, or this loan needs stronger justification before proceeding." });
+
+    if (calc.netProfit < 0)
+      list.push({ tone: "danger", title: "Business is loss-making", detail: `Net loss of ${inr(Math.abs(calc.netProfit))} for the year.`, fix: "Review expenditure heads for overstatement, or hold off on this loan until margins improve." });
+
+    if (calc.monthlyHouseholdSurplus < 0)
+      list.push({ tone: "warn", title: "Household surplus is negative", detail: `Shortfall of ${inr(Math.abs(calc.monthlyHouseholdSurplus))}/month before any new loan.`, fix: "Reduce discretionary household expenses in Step 5, or confirm all income sources are captured." });
+
+    if (calc.dscr > 0 && calc.dscr < 1.2)
+      list.push({ tone: "warn", title: "DSCR below the safe threshold of 1.2", detail: `Current DSCR is ${calc.dscr.toFixed(2)}.`, fix: "Consider a longer tenure or a smaller loan amount to raise DSCR above 1.2." });
+
+    if (calc.foir > 50)
+      list.push({ tone: "warn", title: "FOIR above the 50% banking norm", detail: `Current FOIR is ${pct(calc.foir)}.`, fix: "Reduce the loan amount or extend tenure to bring EMI obligations below 50% of income." });
+
+    if (calc.loanReq > calc.maxEligibleLoan && calc.maxEligibleLoan > 0)
+      list.push({ tone: "danger", title: "Requested loan exceeds eligibility", detail: `Requested ${inr(calc.loanReq)} vs eligible ${inr(calc.maxEligibleLoan)}.`, fix: `Reduce the loan to ${inr(calc.maxEligibleLoan)}, or increase own contribution by ${inr(calc.loanReq - calc.maxEligibleLoan)}.` });
+
+    if (calc.minTenureMonths === null && calc.loanReq > 0)
+      list.push({ tone: "danger", title: "Loan may not be repayable at any tenure", detail: "Safe EMI capacity is too low to ever cover interest on the requested principal.", fix: "Reduce the loan amount substantially, or grow business/household income before proceeding." });
+
+    const materialCost = num(tl.quotedPrice) + num(wc.totalWcRequired);
+    if (materialCost > 0 && calc.loanReq >= materialCost * 0.98)
+      list.push({ tone: "warn", title: "Loan amount looks like the full material/asset cost", detail: `Requested loan ${inr(calc.loanReq)} is almost equal to the material/asset cost of ${inr(materialCost)}.`, fix: `Margin money (min. 10%) should come from the applicant, not the loan. Loan Amount should be Cost − Margin ≈ ${inr(materialCost * 0.9)}, not the full cost.` });
+
+    const wcEligible = Math.max(calc.tandonMethod2Mpbf, calc.turnoverBankFinance);
+    if (num(wc.wcLoanAmount) > wcEligible && wcEligible > 0)
+      list.push({ tone: "warn", title: "Working capital request exceeds assessed eligibility", detail: `Requested ${inr(num(wc.wcLoanAmount))} vs the higher of Tandon Method II (${inr(calc.tandonMethod2Mpbf)}) and Turnover Method (${inr(calc.turnoverBankFinance)}).`, fix: "Reduce the working capital loan amount to align with the bank assessment methods shown in Step 3, or provide justification for the higher requirement." });
+
+    return list;
+  }, [calc, identity, documents, wc, tl]);
+
+  const contextSummary = `Step: ${STEPS[step]}. SHG: ${identity.shgName || "—"}. Enterprise: ${enterprise.enterpriseName || "—"}. Annual sales: ${inr(calc.totalSales)}. Net profit: ${inr(calc.netProfit)}. Loan requested: ${inr(calc.loanReq)}. Max eligible loan: ${inr(calc.maxEligibleLoan)}. DSCR: ${calc.dscr.toFixed(2)}. FOIR: ${pct(calc.foir)}. Recommendation: ${calc.recommendation}. Open issues: ${issues.length}.`;
+
+  return (
+    <div className="min-h-screen bg-stone-50 text-emerald-900" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        .serif { font-family: 'Source Serif 4', serif; }
+        .mono { font-family: 'IBM Plex Mono', monospace; }
+        @media print { .no-print { display: none !important; } .print-area { box-shadow: none !important; } }
+      `}</style>
+
+      <div className="bg-emerald-900 text-stone-50 px-5 py-4 no-print">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon name="account_balance" size={20} className="text-amber-400" />
+            <h1 className="serif text-lg font-bold tracking-wide">IELA Credit Advisor</h1>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                setBpmOpen(true);
+                loadSubmissions();
+              }}
+              className="p-2 rounded-md hover:bg-emerald-800"
+              aria-label="Saved Submissions"
+            >
+              <Icon name="group" size={19} />
+            </button>
+            <button onClick={() => setDiagOpen(true)} className="relative p-2 rounded-md hover:bg-emerald-800" aria-label="Checks">
+              <Icon name="checklist" size={19} />
+              {issues.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-amber-600 text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {issues.length}
+                </span>
+              )}
+            </button>
+            <button onClick={() => setChatOpen(true)} className="p-2 rounded-md hover:bg-emerald-800" aria-label="Chat">
+              <Icon name="chat" size={19} />
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-emerald-100 mt-0.5">DAY-NRLM Annexure III — Enterprise Loan Business Analysis / उद्यम ऋण व्यवसाय विश्लेषण</p>
+        <p className="text-xs text-red-300 mt-1">■ Red text/values = calculated automatically — you don't need to type these yourself. / लाल रंग का पाठ स्वतः गणना होता है, इसे स्वयं भरने की आवश्यकता नहीं।</p>
+      </div>
+
+      <div className="flex overflow-x-auto no-print border-b border-stone-300 bg-stone-100">
+        {STEPS.map((s, i) => (
+          <button
+            key={s}
+            onClick={() => i < step && setStep(i)}
+            className={`flex-1 text-center px-2 py-3 text-xs font-semibold border-b-2 transition-colors ${
+              i === step ? "border-amber-600 text-emerald-900" : i < step ? "border-green-700 text-green-700" : "border-transparent text-stone-400"
+            }`}
+          >
+            <span className="mono block text-xs mb-0.5">{String(i + 1).padStart(2, "0")}</span>
+            {s}
+          </button>
+        ))}
+      </div>
+
+      <div className="max-w-md mx-auto p-4 pb-40">
+        {step === 0 && (
+          <section>
+            <h2 className="serif text-xl font-bold mb-1">A/B. SHG & Member Identification / सदस्य पहचान</h2>
+            <div className="flex gap-2 flex-wrap mb-3">
+              <button onClick={loadSampleData} className="text-xs px-2 py-1 rounded-full border border-amber-600 text-amber-700 font-semibold whitespace-nowrap">
+                Load Sample Data
+              </button>
+              <button onClick={exportData} className="text-xs px-2 py-1 rounded-full border border-emerald-900 text-emerald-900 font-semibold whitespace-nowrap">
+                Export Data / डेटा निर्यात करें
+              </button>
+              <label className="text-xs px-2 py-1 rounded-full border border-emerald-900 text-emerald-900 font-semibold whitespace-nowrap cursor-pointer">
+                Import Data / डेटा आयात करें
+                <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => e.target.files[0] && importData(e.target.files[0])} />
+              </label>
+            </div>
+            {importOk && <Banner tone="ok">Data imported successfully — check each step to confirm. / डेटा सफलतापूर्वक आयात हुआ।</Banner>}
+            {importError && <Banner tone="danger">{importError}</Banner>}
+            <p className="text-sm text-stone-600 mb-3">★ = mandatory / अनिवार्य · Export saves a file you can re-import later or send to someone with this same app. / एक्सपोर्ट की गई फ़ाइल को बाद में दोबारा आयात किया जा सकता है।</p>
+            <SubHeading>A. SHG Details / एसएचजी विवरण</SubHeading>
+            <FieldGrid fields={SHG_FIELDS} obj={identity} setObj={setIdentity} />
+            <SubHeading>B. Member Identification / सदस्य पहचान</SubHeading>
+            <FieldGrid fields={MEMBER_FIELDS} obj={identity} setObj={setIdentity} />
+
+            <SubHeading>C. Documents Checklist / दस्तावेज़ सूची</SubHeading>
+            <Card>
+              {DOCUMENTS.map((d) => (
+                <div key={d.k} className="py-2 border-b border-stone-200 last:border-0">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">{d.l}{d.mandatory && <span className="text-red-700"> ★</span>}</span>
+                    <select
+                      value={documents[d.k].status}
+                      onChange={(e) => setDocuments({ ...documents, [d.k]: { ...documents[d.k], status: e.target.value } })}
+                      className="text-xs border border-stone-400 rounded-md px-1.5 py-1 bg-white"
+                    >
+                      {["Pending", "Collected", "Not Applicable"].map((o) => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </Card>
+          </section>
+        )}
+
+        {step === 1 && (
+          <section>
+            <h2 className="serif text-xl font-bold mb-1">D/E/F. Enterprise & Loan</h2>
+            <SubHeading>D. Enterprise Information / उद्यम जानकारी</SubHeading>
+            <FieldGrid fields={ENTERPRISE_FIELDS} obj={enterprise} setObj={setEnterprise} />
+
+            <SubHeading>E. Member Credit History with SHG & Banks / एसएचजी व बैंक ऋण इतिहास</SubHeading>
+            <FieldGrid fields={CREDIT_HISTORY_FIELDS} obj={credit} setObj={setCredit} />
+
+            <SubHeading>F1. Project Cost & Funding / परियोजना लागत व वित्तपोषण</SubHeading>
+            <Banner tone="warn">
+              Loan Amount = Total Project Cost − Margin Money (min. 10%). Fill the cost of material/asset in F2/F3 below first. / ऋण राशि = कुल परियोजना लागत − मार्जिन मनी (न्यूनतम 10%)। पूरी सामग्री लागत को ऋण राशि के रूप में न भरें।
+            </Banner>
+            <Field label="Total Project Cost (cost of material/asset — auto-fills from F2/F3 below)"><NumInput value={loanF.totalProjectCost} onChange={(v) => setLoanF({ ...loanF, totalProjectCost: v })} /></Field>
+            <Field label="Margin Money – Min 10% (auto-suggested)"><NumInput value={loanF.marginMoney} onChange={(v) => setLoanF({ ...loanF, marginMoney: v })} /></Field>
+            <Field label="Loan Amount Requested = Project Cost − Margin (auto-suggested, override if needed)" mandatory><NumInput value={loanF.loanRequested} onChange={(v) => setLoanF({ ...loanF, loanRequested: v })} /></Field>
+            <FieldGrid fields={F1_FIELDS} obj={loanF} setObj={setLoanF} />
+
+            <SubHeading>F2. Working Capital Details / कार्यशील पूंजी विवरण (केवल WC ऋण हेतु)</SubHeading>
+            <FieldGrid fields={F2_FIELDS} obj={wc} setObj={setWc} />
+
+            <SubHeading>F3. Term Loan Details / टर्म लोन विवरण (केवल TL ऋण हेतु)</SubHeading>
+            <FieldGrid fields={F3_FIELDS} obj={tl} setObj={setTl} />
+          </section>
+        )}
+
+        {step === 2 && (
+          <section>
+            <h2 className="serif text-xl font-bold mb-1">H. Financial Statement</h2>
+            <SubHeading>H1. Sales & Purchases / बिक्री व खरीद – पिछले 12 महीने</SubHeading>
+            {["high", "low", "avg"].map((key) => {
+              const row = calc.rows.find((r) => r.key === key);
+              return (
+                <div key={key} className="bg-white rounded-lg border border-stone-300 p-3 mb-3">
+                  <p className="text-xs font-semibold text-stone-500 uppercase mb-2">
+                    {key === "high" ? "High Sales Period" : key === "low" ? "Low Sales Period" : "Average Sales Period"}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="No. of Months"><NumInput prefix="#" value={h1[key].months} onChange={(v) => setH1({ ...h1, [key]: { ...h1[key], months: v } })} /></Field>
+                    <Field label="Daily Sale (fill this, or leave blank and fill monthly instead)">
+                      <NumInput value={h1[key].dailySale} onChange={(v) => setH1({ ...h1, [key]: { ...h1[key], dailySale: v } })} />
+                    </Field>
+                    {h1[key].dailySale !== "" ? (
+                      <Field label="Avg Monthly Sale" auto>
+                        <div className="mt-1 px-3 py-2 rounded-md bg-red-50 text-red-700 font-mono text-sm">{inr(row.avgMonthlySale)}</div>
+                      </Field>
+                    ) : (
+                      <Field label="Avg Monthly Sale (direct entry, since Daily Sale is blank)">
+                        <NumInput value={h1[key].avgMonthlySaleManual} onChange={(v) => setH1({ ...h1, [key]: { ...h1[key], avgMonthlySaleManual: v } })} />
+                      </Field>
+                    )}
+                    <Field label="Profit Margin %" mandatory><NumInput prefix="%" value={h1[key].margin} onChange={(v) => setH1({ ...h1, [key]: { ...h1[key], margin: v } })} /></Field>
+                    <Field label="Avg Monthly Other Income"><NumInput value={h1[key].otherInc} onChange={(v) => setH1({ ...h1, [key]: { ...h1[key], otherInc: v } })} /></Field>
+                  </div>
+                </div>
+              );
+            })}
+            <Card title="H1 Totals (auto)">
+              <Row label="Avg Monthly Sale" value={inr(calc.avgMonthlySaleTotal)} auto />
+              <Row label="Total Sales (12 months)" value={inr(calc.totalSales)} auto />
+              <Row label="Blended Profit Margin %" value={pct(calc.blendedMargin)} auto />
+              <Row label="Total Purchases" value={inr(calc.totalPurchases)} auto />
+              <Row label="Total Other Income" value={inr(calc.totalOtherIncome)} auto last />
+            </Card>
+
+            <SubHeading>H2. Income & Expenditure / आय व व्यय विवरण (वार्षिक)</SubHeading>
+            <p className="text-xs text-stone-600 mb-2">Total Purchases and Total Sales are auto-linked from H1.</p>
+            <NumList fields={H2_EXPENDITURE_FIELDS} obj={h2} setObj={setH2} />
+            <Field label="Government Subsidy / Grant Received"><NumInput value={govtSubsidy} onChange={setGovtSubsidy} /></Field>
+            {num(h2.wages) + num(h2.familyLabour) > calc.totalSales && calc.totalSales > 0 && (
+              <Banner tone="warn">Some expenditure heads look high relative to sales — please double check.</Banner>
+            )}
+            <Card>
+              <Row label="Total Expenditure (A)" value={inr(calc.totalExpenditure)} auto />
+              <Row label="Total Income (B)" value={inr(calc.totalIncome)} auto />
+              <Row label="Net Profit / (Loss) [B − A]" value={inr(calc.netProfit)} bold last auto />
+            </Card>
+            {calc.netProfit < 0 && <Banner tone="danger">This shows a net loss for the year — repayment capacity will be weak.</Banner>}
+
+            <SubHeading>H3. Balance Sheet / तुलन पत्र</SubHeading>
+            <p className="text-xs font-semibold text-stone-500 mb-1">A. Current Liabilities</p>
+            <NumList fields={CL_FIELDS} obj={h3} setObj={setH3} />
+            <p className="text-xs text-stone-600 my-2">+ SHG Loan Outstanding {inr(num(credit.shgLoanOutstanding))} (auto from Section E)</p>
+
+            <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">B. Long-Term Liabilities</p>
+            <NumList fields={LTL_FIELDS} obj={h3} setObj={setH3} />
+
+            <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">A. Current Assets</p>
+            <NumList fields={CA_FIELDS} obj={h3} setObj={setH3} />
+            <p className="text-xs text-stone-600 my-2">+ Savings with SHG {inr(num(credit.cumulativeShgSavings))} (auto from Section E)</p>
+
+            <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">B. Fixed Assets</p>
+            <NumList fields={FA_FIELDS} obj={h3} setObj={setH3} />
+
+            <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">C. Other Assets</p>
+            <NumList fields={OA_FIELDS} obj={h3} setObj={setH3} />
+
+            <Field label="Drawings by Owner (memo only — not netted into capital)"><NumInput value={drawings} onChange={setDrawings} /></Field>
+
+            <Card title="Balance Sheet Summary (auto)">
+              <Row label="Total Current Liabilities" value={inr(calc.totalCL)} auto />
+              <Row label="Total Long-Term Liabilities" value={inr(calc.totalLTL)} auto />
+              <Row label="Owner's Capital = Total Assets − Liabilities other than capital" value={inr(calc.ownersCapital)} bold auto />
+              <Row label="TOTAL LIABILITIES" value={inr(calc.totalLiabilities)} auto />
+              <Row label="Total Current Assets" value={inr(calc.totalCA)} auto />
+              <Row label="Total Fixed Assets" value={inr(calc.totalFA)} auto />
+              <Row label="Total Other Assets" value={inr(calc.totalOA)} auto />
+              <Row label="TOTAL ASSETS" value={inr(calc.totalAssets)} bold last auto />
+            </Card>
+            {calc.ownersCapital >= 0 ? (
+              <Banner tone="ok">Owner's Capital works out to {inr(calc.ownersCapital)} — assets comfortably cover liabilities other than capital.</Banner>
+            ) : (
+              <Banner tone="danger">Owner's Capital is negative ({inr(calc.ownersCapital)}) — liabilities other than capital exceed total assets. Re-check entries; this points to technical insolvency.</Banner>
+            )}
+            <p className="text-xs text-stone-600 mb-4">Memo (not part of the capital formula): Net Profit for the year {inr(calc.netProfit)} · Drawings {inr(num(drawings))}.</p>
+
+            <SubHeading>Working Capital Assessment / कार्यशील पूंजी मूल्यांकन</SubHeading>
+            <p className="text-xs text-stone-600 mb-2">Two standard bank methods, computed from the Balance Sheet above.</p>
+
+            <Card title="Tandon Committee Method">
+              <Row label="Current Assets" value={inr(calc.totalCA)} auto />
+              <Row label="Current Liabilities other than bank borrowings" value={inr(calc.clOtherThanBankBorrowings)} auto />
+              <Row label="Working Capital Gap (CA − CL)" value={inr(calc.workingCapitalGap)} last auto />
+            </Card>
+            <Card title="Method I — MPBF = 75% of Working Capital Gap">
+              <Row label="Maximum Permissible Bank Finance (MPBF)" value={inr(calc.tandonMethod1Mpbf)} auto />
+              <Row label="Required Net Working Capital (25%, from long-term sources)" value={inr(calc.tandonMethod1Nwc)} last auto />
+            </Card>
+            <Card title="Method II — MPBF = 75% of CA − CL other than bank borrowings">
+              <Row label="Maximum Permissible Bank Finance (MPBF)" value={inr(calc.tandonMethod2Mpbf)} auto />
+              <Row label="Required Net Working Capital (25% of CA)" value={inr(calc.tandonMethod2Nwc)} last auto />
+            </Card>
+
+            <Card title="Turnover Method (Nayak Committee)">
+              <Field label="Projected Annual Turnover — override" help="Defaults to Annual Sales from H1; override if the projected turnover differs.">
+                <NumInput value={projectedTurnoverOverride} onChange={setProjectedTurnoverOverride} />
+              </Field>
+              <p className="text-xs text-stone-600 -mt-2 mb-2">Using: {inr(calc.projectedTurnover)} unless overridden.</p>
+              <Row label="Working Capital Requirement (25% of turnover)" value={inr(calc.turnoverWcRequirement)} auto />
+              <Row label="Borrower's Margin (5% of turnover)" value={inr(calc.turnoverMargin)} auto />
+              <Row label="Bank Finance (20% of turnover)" value={inr(calc.turnoverBankFinance)} bold last auto />
+            </Card>
+            <Banner tone="warn">
+              Turnover Method typically applies for limits up to ₹5 crore (most SHG enterprise loans); Tandon Method is used for larger working capital limits. Use these figures to set the Working Capital Loan Amount in Step 2 (Enterprise & Loan → F2).
+            </Banner>
+          </section>
+        )}
+
+        {step === 3 && (
+          <section>
+            <h2 className="serif text-xl font-bold mb-1">I. Future Business Projections</h2>
+            <p className="text-sm text-stone-600 mb-4">Current year figures are auto-linked from Financials. Enter growth % for Year 2 & 3.</p>
+            <Card title="Current Year (Actual, auto)">
+              <Row label="Sales" value={inr(calc.totalSales)} auto />
+              <Row label="Purchases / COGS" value={inr(calc.totalPurchases)} auto />
+              <Row label="Operating Expenditure" value={inr(calc.totalExpenditure - calc.totalPurchases)} auto />
+              <Row label="Net Profit / (Loss)" value={inr(calc.netProfitY1)} last auto />
+            </Card>
+            <Field label="Sales Growth % – Year 2"><NumInput prefix="%" value={proj.growthSalesY2} onChange={(v) => setProj({ ...proj, growthSalesY2: v })} /></Field>
+            <Field label="Sales Growth % – Year 3"><NumInput prefix="%" value={proj.growthSalesY3} onChange={(v) => setProj({ ...proj, growthSalesY3: v })} /></Field>
+            <Field label="Operating Expenditure Growth % – Year 2"><NumInput prefix="%" value={proj.growthOpexY2} onChange={(v) => setProj({ ...proj, growthOpexY2: v })} /></Field>
+            <Field label="Operating Expenditure Growth % – Year 3"><NumInput prefix="%" value={proj.growthOpexY3} onChange={(v) => setProj({ ...proj, growthOpexY3: v })} /></Field>
+
+            <Card title="Year 2 (Projected, auto)">
+              <Row label="Sales" value={inr(calc.salesY2)} />
+              <Row label="Purchases / COGS" value={inr(calc.purchasesY2)} auto />
+              <Row label="Operating Expenditure" value={inr(calc.opexY2)} auto />
+              <Row label="Net Profit / (Loss)" value={inr(calc.netProfitY2)} last auto />
+            </Card>
+            <Card title="Year 3 (Projected, auto)">
+              <Row label="Sales" value={inr(calc.salesY3)} />
+              <Row label="Purchases / COGS" value={inr(calc.purchasesY3)} auto />
+              <Row label="Operating Expenditure" value={inr(calc.opexY3)} auto />
+              <Row label="Net Profit / (Loss)" value={inr(calc.netProfitY3)} last auto />
+            </Card>
+            <Banner tone="warn">
+              The original workbook's Projections and Surplus rows didn't recompute from Year 2/3 inputs — this prototype fixes that so all three years respond to the growth assumptions above.
+            </Banner>
+          </section>
+        )}
+
+        {step === 4 && (
+          <section>
+            <h2 className="serif text-xl font-bold mb-1">K. Household Information</h2>
+            <SubHeading>K1. Household Profile / पारिवारिक प्रोफ़ाइल</SubHeading>
+            <FieldGrid fields={K1_FIELDS} obj={k1} setObj={setK1} />
+
+            <SubHeading>K2. Household Income / पारिवारिक आय (वार्षिक)</SubHeading>
+            <NumList
+              fields={K2_INCOME_FIELDS}
+              obj={hhInc}
+              setObj={setHhInc}
+              extraRow={{ label: "Income from Business (auto-linked to Net Profit)", value: inr(Math.max(calc.avgMonthlyNetProfit * 12, 0)) }}
+            />
+
+            <SubHeading>K2. Household Expenditure / पारिवारिक व्यय (वार्षिक)</SubHeading>
+            <NumList fields={K2_EXPENDITURE_FIELDS} obj={hhExp} setObj={setHhExp} />
+            <p className="text-xs text-stone-600 my-2">+ EMI – SHG Loan (auto) {inr(num(credit.shgEmi) * 12)} · + EMI – Bank Loan (auto) {inr(num(credit.bankLoanEmi) * 12)}</p>
+
+            <Card title="Household Summary (auto)">
+              <Row label="Total Household Income (A)" value={inr(calc.hhIncomeTotalWithBiz)} auto />
+              <Row label="Total Household Expenditure (B)" value={inr(calc.hhExpTotal)} auto />
+              <Row label="Household Surplus (A − B), annual" value={inr(calc.householdSurplusAnnual)} bold last auto />
+            </Card>
+            {calc.monthlyHouseholdSurplus < 0 && <Banner tone="warn">Household expenses exceed income before any new loan — this will limit eligibility.</Banner>}
+
+            <SubHeading>K3. Loan EMI Repayment Schedule / ऋण ईएमआई अनुसूची (मासिक)</SubHeading>
+            <Card>
+              <Row label="EMI – SHG Loan (auto)" value={inr(calc.existingEmiShg)} auto />
+              <Row label="EMI – Existing Bank Loan (auto)" value={inr(num(credit.bankLoanEmi))} auto />
+              <Row label="EMI – Proposed New Loan (as declared)" value={inr(num(loanF.proposedEmi))} />
+              <Row label="TOTAL MONTHLY EMI" value={inr(calc.totalMonthlyEmi)} bold auto />
+              <Row label="Net Cash Surplus After All EMIs" value={inr(calc.netCashSurplusAfterAllEmis)} bold last auto />
+            </Card>
+          </section>
+        )}
+
+        {step === 5 && (
+          <section>
+            <h2 className="serif text-xl font-bold mb-1">L. Loan Repayment Feasibility</h2>
+            <SubHeading>L1. Input Data / इनपुट डेटा</SubHeading>
+            <Card>
+              <Row label="Proposed Loan Amount (auto)" value={inr(calc.loanReq)} />
+              <Row label="Repayment Period (auto)" value={`${loanF.tenureMonths} months`} />
+              <Row label="Annual Interest Rate (auto)" value={pct(num(loanF.interestRate))} last />
+            </Card>
+            <Field label="Monthly Household Income – override" help="Defaults to the Household step's figure; override if needed.">
+              <NumInput value={emiL1.monthlyHHIncomeOverride} onChange={(v) => setEmiL1({ ...emiL1, monthlyHHIncomeOverride: v })} />
+            </Field>
+            <p className="text-xs text-stone-600 -mt-2 mb-3">Using: {inr(calc.monthlyHHIncome)} unless overridden.</p>
+            <Field label="Monthly Household Expenditure – override">
+              <NumInput value={emiL1.monthlyHHExpenditureOverride} onChange={(v) => setEmiL1({ ...emiL1, monthlyHHExpenditureOverride: v })} />
+            </Field>
+            <p className="text-xs text-stone-600 -mt-2 mb-3">Using: {inr(calc.emiMonthlyHHExpenditureExclEmi)} unless overridden (household expenditure excluding existing EMIs, since those are added back separately below — avoids double-counting).</p>
+            <Field label="Existing Monthly EMI – Bank / Other – override">
+              <NumInput value={emiL1.existingEmiBankOverride} onChange={(v) => setEmiL1({ ...emiL1, existingEmiBankOverride: v })} />
+            </Field>
+            <p className="text-xs text-stone-600 -mt-2 mb-3">Existing EMI – SHG (auto): {inr(calc.existingEmiShg)}</p>
+
+            <SubHeading>L2. Auto-Calculated EMI & Feasibility / स्वतः गणना की गई ईएमआई</SubHeading>
+            <Card>
+              <Row label="Calculated Monthly EMI on Proposed Loan (PMT)" value={inr(calc.calculatedEmi)} auto />
+              <Row label="Total Existing Monthly EMIs" value={inr(calc.totalExistingEmi)} auto />
+              <Row label="Monthly Surplus BEFORE New EMI" value={inr(calc.surplusBeforeNewEmi)} auto />
+              <Row label="Surplus AFTER New EMI" value={inr(calc.surplusAfterNewEmi)} bold auto />
+              <Row label="DSCR" value={calc.dscr.toFixed(2)} auto />
+              <Row label="FOIR" value={pct(calc.foir)} last auto />
+            </Card>
+            {calc.surplusAfterNewEmi < 0 ? (
+              <Banner tone="danger">Not viable at the requested terms — shortfall of {inr(Math.abs(calc.surplusAfterNewEmi))}. See suggestions below.</Banner>
+            ) : (
+              <Banner tone="ok">Viable — surplus of {inr(calc.surplusAfterNewEmi)} remains after the new EMI.</Banner>
+            )}
+
+            <SubHeading>L3. Smart Suggestions / स्मार्ट सुझाव</SubHeading>
+            <p className="text-xs text-stone-600 mb-2">Safe EMI capacity = 50% of surplus before new EMI (buffer for household emergencies).</p>
+            <Card>
+              <Row label="Safe Monthly EMI Capacity" value={inr(calc.safeEmiCapacity)} last auto />
+            </Card>
+            <Card title="Suggestion A — Maximum Loan Affordable (same tenure & rate)">
+              <Row label="Maximum Loan Amount that can be Sanctioned" value={inr(calc.maxEligibleLoan)} last auto />
+            </Card>
+            <Card title="Suggestion B — Minimum Tenure Required (same loan amount & rate)">
+              <Row label="Minimum Tenure Required" value={calc.minTenureMonths ? `${calc.minTenureMonths} months` : "Not achievable at this EMI capacity"} last auto />
+            </Card>
+          </section>
+        )}
+
+        {step === 6 && (
+          <>
+            <Report identity={identity} enterprise={enterprise} credit={credit} loanF={loanF} calc={calc} />
+            <div className="mt-4 no-print space-y-2">
+              <div className="flex gap-2">
+                <button onClick={shareAsText} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-emerald-900 text-emerald-900 text-sm font-semibold">
+                  <Icon name="share" size={16} /> Share / साझा करें
+                </button>
+                <button onClick={shareAsPdf} disabled={pdfBusy} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-amber-600 text-amber-700 text-sm font-semibold disabled:opacity-40">
+                  {pdfBusy ? <Icon name="progress_activity" size={16} className="animate-spin" /> : <Icon name="download" size={16} />} Share PDF / पीडीएफ साझा करें
+                </button>
+              </div>
+              {shareStatus === "shared" && <p className="text-xs text-green-800">Shared successfully via your phone's share sheet.</p>}
+              {shareStatus === "copied" && <p className="text-xs text-stone-600">Sharing isn't available here, so the summary was copied to your clipboard instead — paste it into WhatsApp, SMS, or email.</p>}
+              {shareStatus === "downloaded" && <p className="text-xs text-stone-600">PDF downloaded to your device — share it from your Files/Downloads app.</p>}
+              {shareStatus === "pdf-unavailable" && <p className="text-xs text-red-700">Couldn't load the PDF tool (needs an internet connection). Try "Share" (text) instead, or use Print Report below.</p>}
+              {shareStatus === "error" && <p className="text-xs text-red-700">Something went wrong — please try again.</p>}
+
+              <Banner tone="warn">This saves a summary (names, loan figures, DSCR/FOIR, recommendation) on this device only, so you can review past applications later. To send it to a BPM, use Share / Share PDF above.</Banner>
+              <button onClick={submitToBPM} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold">
+                <Icon name="send" size={16} /> Save Submission (this device)
+              </button>
+              {submitStatus === "saving" && <p className="text-xs text-stone-600 mt-2">Sharing…</p>}
+              {submitStatus === "saved" && <p className="text-xs text-green-800 mt-2">Saved — visible under the Submissions icon (👥) in the header, on this device.</p>}
+              {submitStatus === "error" && <p className="text-xs text-red-700 mt-2">Couldn't share — please try again.</p>}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-stone-100 border-t border-stone-300 px-4 py-3 no-print">
+        <div className="max-w-md mx-auto">
+          {step < STEPS.length - 1 && missingRequired().length > 0 && (
+            <p className="text-xs text-amber-800 mb-2">Not filled yet / अभी भरा नहीं गया: {missingRequired().join(", ")} — you can still continue and fill these later. / आप बाद में भी भर सकते हैं।</p>
+          )}
+          <div className="flex gap-3">
+            {step > 0 && (
+              <button onClick={() => setStep(step - 1)} className="flex items-center gap-1 px-4 py-2 rounded-md border border-stone-400 text-emerald-900 text-sm font-medium">
+                <Icon name="chevron_left" size={16} /> Back / पीछे
+              </button>
+            )}
+            {step < STEPS.length - 1 ? (
+              <button onClick={() => setStep(step + 1)} className="flex-1 flex items-center justify-center gap-1 px-4 py-2 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold">
+                Next / आगे <Icon name="chevron_right" size={16} />
+              </button>
+            ) : (
+              <button onClick={() => window.print()} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-amber-600 text-white text-sm font-semibold">
+                <Icon name="print" size={16} /> Print Report / रिपोर्ट प्रिंट करें
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <button
+        onClick={() => setChatOpen(true)}
+        className="no-print fixed bottom-24 right-4 pl-3 pr-4 py-2.5 rounded-full bg-amber-600 text-white shadow-lg flex items-center gap-2 z-30"
+        aria-label="Ask a question"
+      >
+        <Icon name="chat" size={18} />
+        <span className="text-sm font-semibold">Ask a question</span>
+      </button>
+
+      <ChatWidget open={chatOpen} onClose={() => setChatOpen(false)} contextSummary={contextSummary} step={step} issues={issues} />
+      <DiagnosticsPanel open={diagOpen} onClose={() => setDiagOpen(false)} issues={issues} />
+      <BPMPanel open={bpmOpen} onClose={() => setBpmOpen(false)} submissions={submissions} loading={submissionsLoading} error={submissionsError} onRefresh={loadSubmissions} />
+    </div>
+  );
+}
+
+function Stamp({ recommendation, tone }) {
+  const color = tone === "ok" ? "#4C7A51" : tone === "warn" ? "#C08A2E" : "#A63D40";
+  return (
+    <div className="w-28 h-28 rounded-full border-4 flex items-center justify-center text-center p-2 mx-auto" style={{ borderColor: color, color, transform: "rotate(-8deg)" }}>
+      <span className="serif font-bold text-xs leading-tight uppercase">{recommendation}</span>
+    </div>
+  );
+}
+
+function Report({ identity, enterprise, credit, loanF, calc }) {
+  return (
+    <div className="print-area bg-white border border-stone-300 rounded-lg p-5 shadow-sm">
+      <div className="text-center mb-4">
+        <p className="text-xs tracking-widest text-stone-500 uppercase">Business Analysis & Bank Loan Assessment Report</p>
+        <h2 className="serif text-lg font-bold mt-1">{enterprise.enterpriseName || "Enterprise Name"}</h2>
+        <p className="text-xs text-stone-600">{identity.memberName} · {identity.shgName}</p>
+      </div>
+
+      <SubHeading>1. Applicant Details / आवेदक विवरण</SubHeading>
+      <Row label="Business Activity" value={enterprise.currentActivity || "—"} />
+      <Row label="Experience" value={`${enterprise.experience || 0} yrs`} />
+      <Row label="Existing Bank" value={identity.bankName || "—"} />
+      <Row label="Existing SHG Loan Outstanding" value={inr(num(credit.shgLoanOutstanding))} last />
+
+      <SubHeading>2. Business Performance / व्यवसाय प्रदर्शन</SubHeading>
+      <Row label="Annual Sales" value={inr(calc.totalSales)} auto />
+      <Row label="Gross Profit" value={inr(calc.grossProfit)} />
+      <Row label="Gross Margin" value={pct(calc.grossMargin)} />
+      <Row label="Net Profit" value={inr(calc.netProfit)} auto />
+      <Row label="Net Margin" value={pct(calc.netMargin)} />
+      <Row label="Avg Monthly Net Profit" value={inr(calc.avgMonthlyNetProfit)} last auto />
+
+      <SubHeading>3. Household Assessment / पारिवारिक मूल्यांकन</SubHeading>
+      <Row label="Monthly Household Income" value={inr(calc.monthlyHHIncome)} />
+      <Row label="Monthly Household Expenditure" value={inr(calc.monthlyHHExpenditure)} />
+      <Row label="Monthly Household Surplus" value={inr(calc.monthlyHouseholdSurplus)} last auto />
+
+      <SubHeading>4. Proposed Investment / प्रस्तावित निवेश</SubHeading>
+      <Row label="Purpose" value={loanF.facilityType} />
+      <Row label="Total Project Cost" value={inr(loanF.totalProjectCost)} />
+      <Row label="Margin Money" value={inr(loanF.marginMoney)} />
+      <Row label="Loan Requested" value={inr(calc.loanReq)} last />
+
+      <SubHeading>5. Bank Credit Analysis / बैंक ऋण विश्लेषण</SubHeading>
+      <Row label="Safe EMI Capacity" value={inr(calc.safeEmiCapacity)} auto />
+      <Row label="Calculated Monthly EMI" value={inr(calc.calculatedEmi)} auto />
+      <Row label="DSCR" value={calc.dscr.toFixed(2)} auto />
+      <Row label="FOIR" value={pct(calc.foir)} auto />
+      <Row label="Maximum Eligible Loan" value={inr(calc.maxEligibleLoan)} last auto />
+
+      <SubHeading>5a. Working Capital Assessment / कार्यशील पूंजी मूल्यांकन</SubHeading>
+      <Row label="Tandon Method I — MPBF" value={inr(calc.tandonMethod1Mpbf)} auto />
+      <Row label="Tandon Method II — MPBF" value={inr(calc.tandonMethod2Mpbf)} auto />
+      <Row label="Turnover Method — Bank Finance (20% of turnover)" value={inr(calc.turnoverBankFinance)} last auto />
+      <Row label="Owner's Capital" value={inr(calc.ownersCapital)} last />
+
+      <SubHeading>6. Bank Officer's Decision / बैंक अधिकारी का निर्णय</SubHeading>
+      <div className="my-4"><Stamp recommendation={calc.recommendation} tone={calc.tone} /></div>
+
+      <SubHeading>7. AI Guidance / एआई मार्गदर्शन</SubHeading>
+      <ul className="text-sm space-y-1.5 list-disc pl-4 text-stone-800">
+        {calc.netProfit >= 0 ? (
+          <li>Your business generates a net profit of {inr(calc.netProfit)} a year, supporting repayment capacity.</li>
+        ) : (
+          <li>Your business shows a net loss this year — repayment capacity is weak until this improves.</li>
+        )}
+        {calc.ownersCapital < 0 && <li>Owner's capital works out negative — liabilities other than capital exceed total assets; treat this report as provisional until resolved.</li>}
+        {calc.monthlyHouseholdSurplus < 0 && <li>Household expenses currently exceed income; reducing expenses will improve eligibility.</li>}
+        {calc.loanReq > calc.maxEligibleLoan ? (
+          <li>Your proposed loan of {inr(calc.loanReq)} exceeds repayment capacity of {inr(calc.maxEligibleLoan)}. Consider reducing the loan or increasing own contribution.</li>
+        ) : (
+          <li>Based on your financial data, the estimated sanctionable amount is {inr(calc.maxEligibleLoan)}.</li>
+        )}
+        <li>Expected monthly EMI: {inr(calc.calculatedEmi)}.</li>
+        <li>FOIR is {pct(calc.foir)} — {calc.foir <= 50 ? "within acceptable banking norms." : "above typical banking comfort levels (50%)."}</li>
+      </ul>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+
+<script>
+  function showBootError(title, message, detail) {
+    var root = document.getElementById("root");
+    root.innerHTML =
+      '<div style="padding:20px;font-family:sans-serif;color:#7c2b2d;background:#fef2f2;min-height:100vh;">' +
+      '<h2 style="margin-top:0;">' + title + '</h2>' +
+      '<p style="white-space:pre-wrap;">' + (message || "Unknown error") + '</p>' +
+      (detail ? '<pre style="font-size:11px;color:#994444;white-space:pre-wrap;overflow:auto;border-top:1px solid #f3c4c4;padding-top:10px;">' + detail + '</pre>' : "") +
+      '<p style="font-size:12px;color:#777;margin-top:16px;">If you\'re the developer: open this page\'s browser console (or Safari/Chrome remote inspector) for the full stack trace.</p>' +
+      '</div>';
+  }
+
+  window.addEventListener("error", function (e) {
+    var root = document.getElementById("root");
+    if (root && !root.hasAttribute("data-app-loaded")) {
+      showBootError("Something went wrong", e.message, e.error && e.error.stack);
+    }
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var root = document.getElementById("root");
+    if (root && !root.hasAttribute("data-app-loaded")) {
+      showBootError("Something went wrong (async)", e.reason && e.reason.message ? e.reason.message : String(e.reason));
+    }
+  });
+
+  (function boot() {
+    if (typeof React === "undefined" || typeof ReactDOM === "undefined" || typeof Babel === "undefined") {
+      var missing = [
+        typeof React === "undefined" ? "React" : null,
+        typeof ReactDOM === "undefined" ? "ReactDOM" : null,
+        typeof Babel === "undefined" ? "Babel" : null,
+      ].filter(Boolean).join(", ");
+      showBootError(
+        "Couldn't load required scripts",
+        "This page needs " + missing + " to load from an external CDN (cdnjs.cloudflare.com), but it didn't arrive. This usually means no internet connection, or that CDN is blocked on this network/browser.",
+        "Try: checking your internet connection, switching networks/Wi-Fi, or opening this page in a regular browser (Safari/Chrome) instead of an in-app preview."
+      );
+      return;
+    }
+    var source = document.getElementById("app-source").textContent;
+    var transformed;
+    try {
+      transformed = Babel.transform(source, { presets: ["react"] }).code;
+    } catch (compileErr) {
+      showBootError("Couldn't load the app (code error)", compileErr.message, compileErr.stack);
+      return;
+    }
+    try {
+      (0, eval)(transformed);
+      document.getElementById("root").setAttribute("data-app-loaded", "true");
+    } catch (runtimeErr) {
+      showBootError("Couldn't start the app (runtime error)", runtimeErr.message, runtimeErr.stack);
+    }
+  })();
+</script>
+</body>
+</html>

@@ -88,6 +88,10 @@ const LocalStore = {
     localStorage.setItem(key, value);
     return { key, value };
   },
+  async delete(key) {
+    localStorage.removeItem(key);
+    return { key, deleted: true };
+  },
 };
 
 // ---------------- generic field system ----------------
@@ -258,10 +262,10 @@ const ENTERPRISE_FIELDS = [
 const CREDIT_HISTORY_FIELDS = [
   { k: "memberSince", l: "Member of SHG Since (Year) / एसएचजी सदस्यता वर्ष", type: "number", prefix: "#" }, { k: "loansLast3Yrs", l: "No. of Loans from SHG (Last 3 Yrs) / एसएचजी से ऋणों की संख्या (पिछले 3 वर्ष)", type: "number", prefix: "#" },
   { k: "lastLoanAmount", l: "Amount of Last SHG Loan / पिछले एसएचजी ऋण की राशि", type: "number" }, { k: "highestLoanEver", l: "Highest SHG Loan Ever / अब तक का सर्वाधिक एसएचजी ऋण", type: "number" },
-  { k: "shgLoanOutstanding", l: "SHG Loan Outstanding / बकाया एसएचजी ऋण", type: "number", help: "Auto-links to Balance Sheet current liabilities." },
+  { k: "shgLoanOutstanding", l: "SHG Loan Outstanding / बकाया एसएचजी ऋण", type: "number", help: "Auto-links to Balance Sheet current liabilities. / तुलन पत्र की चालू देनदारियों से स्वतः जुड़ा।" },
   { k: "shgEmi", l: "Monthly EMI Payable to SHG / एसएचजी को देय मासिक ईएमआई", type: "number" }, { k: "shgInterestRate", l: "Interest Rate on SHG Loan (% p.a.) / एसएचजी ऋण पर ब्याज दर (% वार्षिक)", type: "number", prefix: "%" },
   { k: "emiDelays", l: "EMI Delays >30 days (last 12 months) / ईएमआई विलंब >30 दिन (पिछले 12 महीने)", type: "number", prefix: "#" },
-  { k: "cumulativeShgSavings", l: "Cumulative SHG Savings / संचित एसएचजी बचत", type: "number", help: "Auto-links to Balance Sheet current assets." },
+  { k: "cumulativeShgSavings", l: "Cumulative SHG Savings / संचित एसएचजी बचत", type: "number", help: "Auto-links to Balance Sheet current assets. / तुलन पत्र की चालू परिसंपत्तियों से स्वतः जुड़ा।" },
   { k: "ownSbSavings", l: "Savings in Own Bank SB A/c / स्वयं के बचत खाते में जमा", type: "number" }, { k: "fdRd", l: "FD / RD with Bank / बैंक में एफडी / आरडी", type: "number" },
   { k: "otherSavings", l: "Any Other Savings / Investment / कोई अन्य बचत / निवेश", type: "number" }, { k: "bankLoanOutstanding", l: "Bank Loan Outstanding / बकाया बैंक ऋण", type: "number" },
   { k: "bankLoanEmi", l: "Bank Loan Monthly EMI / बैंक ऋण मासिक ईएमआई", type: "number" }, { k: "informalLoan", l: "Informal Loan – Family / Friends / अनौपचारिक ऋण – परिवार / मित्र", type: "number" },
@@ -295,9 +299,9 @@ const H2_EXPENDITURE_FIELDS = [
   { k: "otherExp1", l: "Other Expenditure 1 / अन्य व्यय 1" }, { k: "otherExp2", l: "Other Expenditure 2 / अन्य व्यय 2" },
 ];
 const CL_FIELDS = [
-  { k: "clBankLoanST", l: "Bank Loan Outstanding – Short Term / बकाया बैंक ऋण – अल्पकालिक" }, { k: "clCreditSuppliers", l: "Credit from Suppliers / आपूर्तिकर्ताओं से उधार" },
+  { k: "clBankLoanST", l: "Other Bank Loan / OD Outstanding – Short Term (if different from Section E) / अन्य बैंक ऋण / ओडी – अल्पकालिक (यदि Section E से भिन्न हो)" }, { k: "clCreditSuppliers", l: "Credit from Suppliers / आपूर्तिकर्ताओं से उधार" },
   { k: "clAdvanceReceived", l: "Advance Received from Customers / ग्राहकों से प्राप्त अग्रिम" }, { k: "clGstPayable", l: "GST / Tax Payable / जीएसटी / देय कर" },
-  { k: "clInformalLoans", l: "Informal Loans – Family / Friends / अनौपचारिक ऋण – परिवार / मित्र" }, { k: "clOther", l: "Other Current Liabilities / अन्य चालू देनदारियां" },
+  { k: "clOther", l: "Other Current Liabilities / अन्य चालू देनदारियां" },
 ];
 const LTL_FIELDS = [{ k: "ltBankTermLoan", l: "Bank Term Loan Outstanding / बकाया बैंक टर्म लोन" }, { k: "ltOther", l: "Other Long-Term Liabilities / अन्य दीर्घकालिक देनदारियां" }];
 const CA_FIELDS = [
@@ -368,33 +372,33 @@ const SUGGESTED_QUESTIONS = {
 
 // Knowledge base: each entry is checked in order; first keyword match wins.
 const CHAT_KB = [
-  { k: ["aadhaar", "pan card", "kyc", "why do i need"], a: "Aadhaar, PAN, and the other KYC documents confirm the applicant's identity and are required by the bank before it can sanction any loan. If a document isn't ready yet, mark it 'Pending' in the Documents Checklist (Step 1) — you can still continue filling the rest of the form." },
-  { k: ["red", "auto", "why is some text"], a: "Any field or value shown in red is calculated automatically from other entries — you don't need to type those yourself. For example, Avg Monthly Sale turns red once you enter Daily Sale, because it's computed from it." },
-  { k: ["working capital", "term loan", "wc vs", "difference between"], a: "Working Capital covers day-to-day running costs (stock, raw material) that get recovered as you sell — it's short-term and revolving. A Term Loan funds a one-time purchase like machinery or a shop asset, repaid over a fixed period. Fill F2 for Working Capital details and F3 for Term Loan details." },
-  { k: ["margin money", "margin", "10%"], a: "Margin Money is the portion of the project cost the applicant/SHG contributes themselves — usually a minimum of 10%. Loan Amount = Total Project Cost − Margin Money. The app auto-suggests both once you enter the material/asset cost in F2/F3." },
-  { k: ["material cost", "loan amount same", "quoted price"], a: "The Loan Amount should never equal the full cost of material or the asset being purchased — margin money has to come from the applicant. If you see a warning about this in Checks, it means the requested loan looks too close to the full cost." },
-  { k: ["balance sheet", "tally", "owner's capital", "owners capital"], a: "Owner's Capital = Total Assets − Total Liabilities other than capital. Because of this formula, the balance sheet always tallies by construction — Owner's Capital is the balancing figure. If it comes out negative, that's a real warning sign (liabilities exceed assets), which shows up in Checks." },
-  { k: ["family labour", "family labor"], a: "Family Labour is the imputed value of unpaid work done by family members in the business — even though no wage is actually paid, it's still a real cost of running the business and should be estimated and included." },
-  { k: ["opening stock", "closing stock", "cogs", "cost of goods sold"], a: "Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. Opening Stock is what you had at the start of the year (enter it in Step 3); Closing Stock is auto-linked from the Balance Sheet's Raw Material + Finished Goods Stock, so you don't enter it twice. This gives a more accurate Gross Profit than just Sales − Purchases." },
-  { k: ["daily sale", "monthly sale"], a: "Fill either one — whichever is easier for you. If you enter Daily Sale, Avg Monthly Sale is calculated automatically (shown in red). If Daily Sale is left blank, a direct Avg Monthly Sale field appears for you to fill instead." },
-  { k: ["growth", "projection", "growth rate"], a: "The growth % you enter for Year 2 and Year 3 projects how much Sales and Operating Expenditure might increase. A realistic rate is usually 10-20% for a stable small business — very high rates (40%+) make the projection unreliable, so keep it conservative unless there's a clear reason (like a big new loan-funded expansion) to expect faster growth." },
-  { k: ["household expense", "hh expense"], a: "Include housing/utilities, food & groceries, transport, education, medical, and social/festival expenses. Don't include business expenses here — those belong in the Financials step." },
-  { k: ["bpl", "apl"], a: "BPL (Below Poverty Line) and APL (Above Poverty Line) are government income categories used to classify households for various welfare schemes — select whichever applies to this household." },
-  { k: ["business profit", "profit count", "household income"], a: "Net Profit from the business is added into Household Income (as a red, auto-calculated row) because that profit is real cash available to the household — it directly affects how much loan EMI the family can actually afford." },
-  { k: ["dscr"], a: "DSCR (Debt Service Coverage Ratio) shows how many times over the household's available surplus can cover its total EMI obligations. A DSCR of 1.2 or higher is generally considered safe; below that, repayment capacity is tight." },
-  { k: ["foir"], a: "FOIR (Fixed Obligation to Income Ratio) is the percentage of monthly income already committed to EMIs. Banks typically prefer this to stay under 50% — above that, the household is over-leveraged." },
-  { k: ["maximum eligible loan", "max eligible", "how is the maximum"], a: "Maximum Eligible Loan works backward from Safe EMI Capacity (50% of the surplus left after existing EMIs) — it's the largest loan that capacity could repay at the chosen interest rate and tenure, using the standard EMI formula." },
-  { k: ["tandon"], a: "The Tandon Committee method estimates working capital eligibility from the Balance Sheet: Method I takes 75% of the Working Capital Gap (Current Assets − Current Liabilities excluding bank borrowings); Method II takes 75% of Current Assets minus those liabilities. Both require the applicant to fund at least 25% from long-term sources." },
-  { k: ["turnover method", "nayak"], a: "The Turnover Method (Nayak Committee) is simpler and used for smaller loans: Working Capital need = 25% of projected annual turnover, with the borrower contributing a 5% margin and the bank financing 20% of turnover." },
-  { k: ["recommend with conditions", "not recommended", "recommendation mean"], a: "'Recommend' means the loan fits comfortably within repayment capacity. 'Recommend with Conditions' means it's close to the limit — a bank might ask for a longer tenure or more margin. 'Not Recommended' means the requested amount clearly exceeds what the household/business can safely repay." },
-  { k: ["improve", "chances of approval", "increase eligibility"], a: "To improve eligibility: increase own contribution/margin money, reduce the loan amount toward the Maximum Eligible Loan figure, extend the tenure to lower the EMI, or reduce household/business expenses to raise surplus." },
-  { k: ["share", "pdf", "print"], a: "On the Report step: 'Share' sends a text summary via your phone's share sheet (or copies it if that's unavailable), 'Share PDF' generates and shares an actual PDF file, and 'Print Report' uses your browser's print/Save-as-PDF option. 'Save Submission' keeps a summary on this device only." },
-  { k: ["mic", "voice", "speak"], a: "Tap the mic icon next to the chat input to speak your question instead of typing — it uses your browser's built-in voice recognition. If your device doesn't support it, you'll see a message and can just type instead." },
-  { k: ["stuck", "next button", "won't move", "not going"], a: "The Next button always works now — it never gets permanently blocked. If required fields are empty, you'll see a small reminder above the button, but you can still continue and fill them later." },
-  { k: ["document", "checklist"], a: "The Documents Checklist (Step 1, Section C) lists KYC and supporting papers needed for the loan file. Mark each as Collected, Pending, or Not Applicable — pending mandatory documents show up under Checks." },
-  { k: ["sample data", "dummy data", "test data"], a: "Tap 'Load Sample Data' at the top of the Identity step (Step 1) to fill the whole form with a realistic example so you can see how everything works end-to-end." },
-  { k: ["bpm", "submission", "save submission"], a: "'Save Submission' on the Report step saves a summary of this application on this device, viewable later under the Submissions icon (👥) in the header. It does not send data anywhere else automatically — use 'Share' or 'Share PDF' to actually send it to someone." },
-  { k: ["api", "internet", "offline"], a: "This assistant works fully offline — it answers from a built-in knowledge base, with no internet connection or API key needed." },
+  { k: ["aadhaar", "pan card", "kyc", "why do i need"], a: "Aadhaar, PAN, and the other KYC documents confirm the applicant's identity and are required by the bank before it can sanction any loan. If a document isn't ready yet, mark it 'Pending' in the Documents Checklist (Step 1) — you can still continue filling the rest of the form. / आधार, पैन और अन्य केवाईसी दस्तावेज़ आवेदक की पहचान की पुष्टि करते हैं और ऋण स्वीकृति से पहले बैंक के लिए आवश्यक हैं। यदि कोई दस्तावेज़ तैयार नहीं है, तो दस्तावेज़ सूची (चरण 1) में उसे 'लंबित' चिह्नित करें — आप बाकी फॉर्म भरना जारी रख सकते हैं।" },
+  { k: ["red", "auto", "why is some text"], a: "Any field or value shown in red is calculated automatically from other entries — you don't need to type those yourself. For example, Avg Monthly Sale turns red once you enter Daily Sale, because it's computed from it. / लाल रंग में दिखाया गया कोई भी फ़ील्ड या मूल्य अन्य प्रविष्टियों से स्वतः गणना होता है — आपको इसे स्वयं भरने की आवश्यकता नहीं। उदाहरण के लिए, दैनिक बिक्री भरते ही औसत मासिक बिक्री लाल हो जाती है क्योंकि वह उससे गणना होती है।" },
+  { k: ["working capital", "term loan", "wc vs", "difference between"], a: "Working Capital covers day-to-day running costs (stock, raw material) that get recovered as you sell — it's short-term and revolving. A Term Loan funds a one-time purchase like machinery or a shop asset, repaid over a fixed period. Fill F2 for Working Capital details and F3 for Term Loan details. / कार्यशील पूंजी दैनिक खर्चों (स्टॉक, कच्चा माल) को कवर करती है जो बिक्री से वसूल होते हैं — यह अल्पकालिक व घूर्णनशील है। टर्म लोन मशीनरी जैसी एकबारगी खरीद के लिए होता है, निश्चित अवधि में चुकाया जाता है। कार्यशील पूंजी के लिए F2 और टर्म लोन के लिए F3 भरें।" },
+  { k: ["margin money", "margin", "10%"], a: "Margin Money is the portion of the project cost the applicant/SHG contributes themselves — usually a minimum of 10%. Loan Amount = Total Project Cost − Margin Money. The app auto-suggests both once you enter the material/asset cost in F2/F3. / मार्जिन मनी परियोजना लागत का वह हिस्सा है जो आवेदक/एसएचजी स्वयं देते हैं — आमतौर पर न्यूनतम 10%। ऋण राशि = कुल परियोजना लागत − मार्जिन मनी। F2/F3 में सामग्री/परिसंपत्ति लागत भरते ही दोनों स्वतः सुझाई जाती हैं।" },
+  { k: ["material cost", "loan amount same", "quoted price"], a: "The Loan Amount should never equal the full cost of material or the asset being purchased — margin money has to come from the applicant. If you see a warning about this in Checks, it means the requested loan looks too close to the full cost. / ऋण राशि कभी भी सामग्री या परिसंपत्ति की पूरी लागत के बराबर नहीं होनी चाहिए — मार्जिन मनी आवेदक से आनी चाहिए। यदि Checks में इसकी चेतावनी दिखे, तो अनुरोधित ऋण पूरी लागत के बहुत करीब है।" },
+  { k: ["balance sheet", "tally", "owner's capital", "owners capital"], a: "Owner's Capital = Total Assets − Total Liabilities other than capital. Because of this formula, the balance sheet always tallies by construction — Owner's Capital is the balancing figure. If it comes out negative, that's a real warning sign (liabilities exceed assets), which shows up in Checks. / स्वामी की पूंजी = कुल परिसंपत्ति − पूंजी के अलावा कुल देनदारियां। इस सूत्र के कारण तुलन पत्र हमेशा मेल खाता है — स्वामी की पूंजी संतुलन आंकड़ा है। यदि यह ऋणात्मक आए, तो यह वास्तविक चेतावनी है (देनदारियां परिसंपत्तियों से अधिक), जो Checks में दिखती है।" },
+  { k: ["family labour", "family labor"], a: "Family Labour is the imputed value of unpaid work done by family members in the business — even though no wage is actually paid, it's still a real cost of running the business and should be estimated and included. / पारिवारिक श्रम, व्यवसाय में परिवार के सदस्यों द्वारा बिना वेतन किए गए कार्य का अनुमानित मूल्य है — भले ही कोई वेतन न दिया जाए, यह व्यवसाय चलाने की वास्तविक लागत है और इसे शामिल किया जाना चाहिए।" },
+  { k: ["opening stock", "closing stock", "cogs", "cost of goods sold"], a: "Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. Opening Stock is what you had at the start of the year (enter it in Step 3); Closing Stock is auto-linked from the Balance Sheet's Raw Material + Finished Goods Stock, so you don't enter it twice. This gives a more accurate Gross Profit than just Sales − Purchases. / बेची गई वस्तुओं की लागत (COGS) = प्रारंभिक स्टॉक + खरीद − अंतिम स्टॉक। प्रारंभिक स्टॉक वर्ष की शुरुआत में था (चरण 3 में भरें); अंतिम स्टॉक तुलन पत्र के कच्चे माल + तैयार माल स्टॉक से स्वतः जुड़ा है, इसे दोबारा न भरें। इससे सकल लाभ अधिक सटीक होता है।" },
+  { k: ["daily sale", "monthly sale"], a: "Fill either one — whichever is easier for you. If you enter Daily Sale, Avg Monthly Sale is calculated automatically (shown in red). If Daily Sale is left blank, a direct Avg Monthly Sale field appears for you to fill instead. / जो भी आपके लिए आसान हो वह भरें। दैनिक बिक्री भरने पर औसत मासिक बिक्री स्वतः गणना होती है (लाल रंग में)। दैनिक बिक्री खाली छोड़ने पर सीधे औसत मासिक बिक्री भरने का विकल्प आता है।" },
+  { k: ["growth", "projection", "growth rate"], a: "The growth % you enter for Year 2 and Year 3 projects how much Sales and Operating Expenditure might increase. A realistic rate is usually 10-20% for a stable small business — very high rates (40%+) make the projection unreliable, so keep it conservative unless there's a clear reason (like a big new loan-funded expansion) to expect faster growth. / वर्ष 2 व 3 के लिए भरी गई वृद्धि % यह दर्शाती है कि बिक्री व परिचालन व्यय कितना बढ़ सकता है। एक स्थिर छोटे व्यवसाय के लिए 10-20% यथार्थवादी है — बहुत अधिक दर (40%+) अनुमान को अविश्वसनीय बनाती है, इसलिए स्पष्ट कारण न हो तो सतर्क रहें।" },
+  { k: ["household expense", "hh expense"], a: "Include housing/utilities, food & groceries, transport, education, medical, and social/festival expenses. Don't include business expenses here — those belong in the Financials step. / आवास/उपयोगिताएं, भोजन व किराना, परिवहन, शिक्षा, चिकित्सा व सामाजिक/त्योहार व्यय शामिल करें। यहां व्यावसायिक खर्च शामिल न करें — वे वित्तीय चरण में आते हैं।" },
+  { k: ["bpl", "apl"], a: "BPL (Below Poverty Line) and APL (Above Poverty Line) are government income categories used to classify households for various welfare schemes — select whichever applies to this household. / बीपीएल (गरीबी रेखा से नीचे) और एपीएल (गरीबी रेखा से ऊपर) सरकारी आय श्रेणियां हैं जो विभिन्न कल्याण योजनाओं के लिए परिवारों को वर्गीकृत करती हैं — जो भी इस परिवार पर लागू हो वह चुनें।" },
+  { k: ["business profit", "profit count", "household income"], a: "Net Profit from the business is added into Household Income (as a red, auto-calculated row) because that profit is real cash available to the household — it directly affects how much loan EMI the family can actually afford. / व्यवसाय से शुद्ध लाभ पारिवारिक आय में जोड़ा जाता है (लाल, स्वतः-गणना पंक्ति के रूप में) क्योंकि वह लाभ परिवार के लिए वास्तविक नकद है — यह सीधे प्रभावित करता है कि परिवार कितनी ईएमआई वहन कर सकता है।" },
+  { k: ["dscr"], a: "DSCR (Debt Service Coverage Ratio) shows how many times over the household's available surplus can cover its total EMI obligations. A DSCR of 1.2 or higher is generally considered safe; below that, repayment capacity is tight. / डीएससीआर (ऋण सेवा कवरेज अनुपात) दर्शाता है कि परिवार का उपलब्ध अधिशेष कुल ईएमआई दायित्वों को कितनी बार कवर कर सकता है। 1.2 या अधिक डीएससीआर सुरक्षित माना जाता है; इससे कम होने पर पुनर्भुगतान क्षमता तंग है।" },
+  { k: ["foir"], a: "FOIR (Fixed Obligation to Income Ratio) is the percentage of monthly income already committed to EMIs. Banks typically prefer this to stay under 50% — above that, the household is over-leveraged. / एफओआईआर (निश्चित दायित्व-आय अनुपात) मासिक आय का वह प्रतिशत है जो पहले से ईएमआई में लगा है। बैंक आमतौर पर इसे 50% से कम रखना पसंद करते हैं — इससे अधिक होने पर परिवार पर अधिक कर्ज़ है।" },
+  { k: ["maximum eligible loan", "max eligible", "how is the maximum"], a: "Maximum Eligible Loan works backward from Safe EMI Capacity (50% of the surplus left after existing EMIs) — it's the largest loan that capacity could repay at the chosen interest rate and tenure, using the standard EMI formula. / अधिकतम पात्र ऋण, सुरक्षित ईएमआई क्षमता (मौजूदा ईएमआई के बाद बचे अधिशेष का 50%) से पीछे की ओर गणना होती है — यह वह सबसे बड़ा ऋण है जिसे चुनी गई ब्याज दर व अवधि पर मानक ईएमआई सूत्र से चुकाया जा सकता है।" },
+  { k: ["tandon"], a: "The Tandon Committee method estimates working capital eligibility from the Balance Sheet: Method I takes 75% of the Working Capital Gap (Current Assets − Current Liabilities excluding bank borrowings); Method II takes 75% of Current Assets minus those liabilities. Both require the applicant to fund at least 25% from long-term sources. / टंडन समिति पद्धति तुलन पत्र से कार्यशील पूंजी पात्रता का अनुमान लगाती है: विधि I कार्यशील पूंजी अंतर का 75% लेती है; विधि II चालू परिसंपत्तियों के 75% में से उन देनदारियों को घटाती है। दोनों में कम से कम 25% दीर्घकालिक स्रोतों से आवश्यक है।" },
+  { k: ["turnover method", "nayak"], a: "The Turnover Method (Nayak Committee) is simpler and used for smaller loans: Working Capital need = 25% of projected annual turnover, with the borrower contributing a 5% margin and the bank financing 20% of turnover. / टर्नओवर पद्धति (नायक समिति) सरल है और छोटे ऋणों के लिए उपयोग होती है: कार्यशील पूंजी आवश्यकता = अनुमानित वार्षिक टर्नओवर का 25%, उधारकर्ता 5% मार्जिन देता है व बैंक टर्नओवर का 20% वित्तपोषित करता है।" },
+  { k: ["recommend with conditions", "not recommended", "recommendation mean"], a: "'Recommend' means the loan fits comfortably within repayment capacity. 'Recommend with Conditions' means it's close to the limit — a bank might ask for a longer tenure or more margin. 'Not Recommended' means the requested amount clearly exceeds what the household/business can safely repay. / 'Recommend' का अर्थ है ऋण पुनर्भुगतान क्षमता में आराम से फिट बैठता है। 'Recommend with Conditions' का अर्थ है यह सीमा के करीब है। 'Not Recommended' का अर्थ है अनुरोधित राशि सुरक्षित पुनर्भुगतान क्षमता से स्पष्ट रूप से अधिक है।" },
+  { k: ["improve", "chances of approval", "increase eligibility"], a: "To improve eligibility: increase own contribution/margin money, reduce the loan amount toward the Maximum Eligible Loan figure, extend the tenure to lower the EMI, or reduce household/business expenses to raise surplus. / पात्रता सुधारने के लिए: स्वयं का योगदान/मार्जिन मनी बढ़ाएं, ऋण राशि अधिकतम पात्र ऋण के करीब घटाएं, ईएमआई घटाने के लिए अवधि बढ़ाएं, या अधिशेष बढ़ाने के लिए खर्च घटाएं।" },
+  { k: ["share", "pdf", "print"], a: "On the Report step: 'Share' sends a text summary via your phone's share sheet (or copies it if that's unavailable), 'Share PDF' generates and shares an actual PDF file, and 'Print Report' uses your browser's print/Save-as-PDF option. 'Save Submission' keeps a summary on this device only. / रिपोर्ट चरण में: 'Share' फोन के शेयर शीट से टेक्स्ट सारांश भेजता है, 'Share PDF' एक वास्तविक पीडीएफ फ़ाइल बनाकर साझा करता है, 'Print Report' ब्राउज़र के प्रिंट/Save-as-PDF विकल्प का उपयोग करता है। 'Save Submission' केवल इस डिवाइस पर सारांश रखता है।" },
+  { k: ["mic", "voice", "speak"], a: "Tap the mic icon next to the chat input to speak your question instead of typing — it uses your browser's built-in voice recognition. If your device doesn't support it, you'll see a message and can just type instead. / टाइप करने के बजाय बोलने के लिए चैट इनपुट के पास माइक आइकन दबाएं — यह ब्राउज़र की अंतर्निहित आवाज़ पहचान का उपयोग करता है। यदि आपका डिवाइस समर्थन नहीं करता, तो संदेश दिखेगा और आप टाइप कर सकते हैं।" },
+  { k: ["stuck", "next button", "won't move", "not going"], a: "The Next button always works now — it never gets permanently blocked. If required fields are empty, you'll see a small reminder above the button, but you can still continue and fill them later. / Next बटन अब हमेशा काम करता है — यह कभी स्थायी रूप से नहीं रुकता। यदि आवश्यक फ़ील्ड खाली हैं, तो बटन के ऊपर एक छोटा अनुस्मारक दिखेगा, लेकिन आप आगे बढ़कर बाद में भर सकते हैं।" },
+  { k: ["document", "checklist"], a: "The Documents Checklist (Step 1, Section C) lists KYC and supporting papers needed for the loan file. Mark each as Collected, Pending, or Not Applicable — pending mandatory documents show up under Checks. / दस्तावेज़ सूची (चरण 1, खंड C) में ऋण फ़ाइल के लिए आवश्यक केवाईसी व सहायक कागज़ात सूचीबद्ध हैं। प्रत्येक को Collected, Pending या Not Applicable चिह्नित करें — लंबित अनिवार्य दस्तावेज़ Checks में दिखते हैं।" },
+  { k: ["sample data", "dummy data", "test data"], a: "Tap 'Load Sample Data' at the top of the Identity step (Step 1) to fill the whole form with a realistic example so you can see how everything works end-to-end. / पूरे फॉर्म को एक यथार्थवादी उदाहरण से भरने के लिए पहचान चरण (चरण 1) के शीर्ष पर 'Load Sample Data' दबाएं ताकि आप देख सकें कि सब कुछ कैसे काम करता है।" },
+  { k: ["bpm", "submission", "save submission"], a: "'Save Submission' on the Report step saves a summary of this application on this device, viewable later under the Submissions icon (👥) in the header. It does not send data anywhere else automatically — use 'Share' or 'Share PDF' to actually send it to someone. / रिपोर्ट चरण पर 'Save Submission' इस आवेदन का सारांश इस डिवाइस पर सहेजता है, जिसे बाद में हेडर के Submissions आइकन (👥) में देखा जा सकता है। यह डेटा कहीं और स्वतः नहीं भेजता — किसी को भेजने के लिए 'Share' या 'Share PDF' का उपयोग करें।" },
+  { k: ["api", "internet", "offline"], a: "This assistant works fully offline — it answers from a built-in knowledge base, with no internet connection or API key needed. / यह सहायक पूरी तरह ऑफ़लाइन काम करता है — यह अंतर्निहित ज्ञान आधार से उत्तर देता है, इंटरनेट या एपीआई कुंजी की आवश्यकता नहीं।" },
 ];
 
 function findLocalAnswer(question, issues) {
@@ -516,6 +520,9 @@ function ChatWidget({ open, onClose, contextSummary, step, issues }) {
 // ---------------- diagnostics / discrepancy panel ----------------
 function DiagnosticsPanel({ open, onClose, issues }) {
   if (!open) return null;
+  const dangerCount = issues.filter((i) => i.tone === "danger").length;
+  const warnCount = issues.filter((i) => i.tone === "warn").length;
+  const overall = dangerCount > 0 ? { tone: "danger", label: "Needs Attention / ध्यान देने की आवश्यकता" } : warnCount > 0 ? { tone: "warn", label: "Minor Issues / मामूली समस्याएं" } : { tone: "ok", label: "Good / ठीक है" };
   return (
     <div className="fixed inset-0 z-40 no-print flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black bg-opacity-30" onClick={onClose} />
@@ -523,13 +530,18 @@ function DiagnosticsPanel({ open, onClose, issues }) {
         <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon name="checklist" size={18} className="text-amber-400" />
-            <span className="serif font-bold text-sm">Checks & Discrepancies</span>
+            <span className="serif font-bold text-sm">Health Check / स्वास्थ्य जांच</span>
           </div>
           <button onClick={onClose}><Icon name="close" size={18} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
+          <div className="mb-3">
+            <Banner tone={overall.tone}>
+              Overall: {overall.label} — {issues.length} item{issues.length === 1 ? "" : "s"} found ({dangerCount} serious, {warnCount} minor).
+            </Banner>
+          </div>
           {issues.length === 0 ? (
-            <Banner tone="ok">No issues found — figures are consistent and mandatory fields are complete.</Banner>
+            <Banner tone="ok">No issues found — figures are consistent and mandatory fields are complete. / कोई समस्या नहीं मिली।</Banner>
           ) : (
             issues.map((iss, i) => (
               <div key={i} className="bg-white border border-stone-300 rounded-lg p-3 mb-3">
@@ -709,9 +721,9 @@ function App() {
     const avgMonthlyNetProfit = netProfit / 12;
 
     // H3 balance sheet
-    const totalCL = sum(num(credit.shgLoanOutstanding), ...CL_FIELDS.map((f) => h3[f.k]));
+    const totalCL = sum(num(credit.shgLoanOutstanding), num(credit.bankLoanOutstanding), num(credit.informalLoan), ...CL_FIELDS.map((f) => h3[f.k]));
     const totalLTL = sum(...LTL_FIELDS.map((f) => h3[f.k]));
-    const totalCA = sum(num(credit.cumulativeShgSavings), ...CA_FIELDS.map((f) => h3[f.k]));
+    const totalCA = sum(num(credit.cumulativeShgSavings), num(credit.ownSbSavings), num(credit.fdRd), num(credit.otherSavings), ...CA_FIELDS.map((f) => h3[f.k]));
     const totalFA = sum(...FA_FIELDS.map((f) => h3[f.k]));
     const totalOA = sum(...OA_FIELDS.map((f) => h3[f.k]));
     const totalAssets = totalCA + totalFA + totalOA;
@@ -722,7 +734,7 @@ function App() {
     const balances = Math.round(totalAssets) === Math.round(totalLiabilities); // true by construction — capital is the plug
 
     // Working Capital Assessment — Tandon Committee method (Method I & II) + Turnover method (Nayak Committee)
-    const clBankBorrowings = num(h3.clBankLoanST) + num(credit.shgLoanOutstanding);
+    const clBankBorrowings = num(h3.clBankLoanST) + num(credit.shgLoanOutstanding) + num(credit.bankLoanOutstanding);
     const clOtherThanBankBorrowings = totalCL - clBankBorrowings;
     const workingCapitalGap = totalCA - clOtherThanBankBorrowings;
     const tandonMethod1Mpbf = Math.max(workingCapitalGap, 0) * 0.75;
@@ -1000,12 +1012,109 @@ function App() {
 
   const [importError, setImportError] = useState("");
   const [importOk, setImportOk] = useState(false);
+  const [autosaveStatus, setAutosaveStatus] = useState("");
+  const [restoredFromAutosave, setRestoredFromAutosave] = useState(false);
+  const autosaveReady = useRef(false);
 
-  function exportData() {
-    const payload = {
+  function buildDataPayload() {
+    return {
       identity, documents, enterprise, credit, loanF, wc, tl, h1, h2, govtSubsidy, openingStock, h3, drawings, proj, k1, hhInc, hhExp,
       emiL1, projectedTurnoverOverride,
     };
+  }
+
+  function applyImportedData(data) {
+    if (data.identity) setIdentity((cur) => ({ ...cur, ...data.identity }));
+    if (data.documents) setDocuments((cur) => ({ ...cur, ...data.documents }));
+    if (data.enterprise) setEnterprise((cur) => ({ ...cur, ...data.enterprise }));
+    if (data.credit) setCredit((cur) => ({ ...cur, ...data.credit }));
+    if (data.loanF) setLoanF((cur) => ({ ...cur, ...data.loanF }));
+    if (data.wc) setWc((cur) => ({ ...cur, ...data.wc }));
+    if (data.tl) setTl((cur) => ({ ...cur, ...data.tl }));
+    if (data.h1) setH1(data.h1);
+    if (data.h2) setH2((cur) => ({ ...cur, ...data.h2 }));
+    if (data.govtSubsidy !== undefined) setGovtSubsidy(data.govtSubsidy);
+    if (data.openingStock !== undefined) setOpeningStock(data.openingStock);
+    if (data.h3) setH3((cur) => ({ ...cur, ...data.h3 }));
+    if (data.drawings !== undefined) setDrawings(data.drawings);
+    if (data.proj) setProj((cur) => ({ ...cur, ...data.proj }));
+    if (data.k1) setK1((cur) => ({ ...cur, ...data.k1 }));
+    if (data.hhInc) setHhInc((cur) => ({ ...cur, ...data.hhInc }));
+    if (data.hhExp) setHhExp((cur) => ({ ...cur, ...data.hhExp }));
+    if (data.emiL1) setEmiL1((cur) => ({ ...cur, ...data.emiL1 }));
+    if (data.projectedTurnoverOverride !== undefined) setProjectedTurnoverOverride(data.projectedTurnoverOverride);
+  }
+
+  // Restore autosaved data once, when the app first opens.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await LocalStore.get("autosave");
+        if (res && res.value) {
+          applyImportedData(JSON.parse(res.value));
+          setRestoredFromAutosave(true);
+        }
+      } catch (e) {
+        // no autosave yet — normal on first use
+      } finally {
+        autosaveReady.current = true;
+      }
+    })();
+  }, []);
+
+  // Autosave on every change (debounced), so data survives closing the app — until "Delete All Data" is used.
+  useEffect(() => {
+    if (!autosaveReady.current) return;
+    const t = setTimeout(async () => {
+      try {
+        await LocalStore.set("autosave", JSON.stringify(buildDataPayload()));
+        setAutosaveStatus("saved");
+      } catch (e) {
+        setAutosaveStatus("error");
+      }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [identity, documents, enterprise, credit, loanF, wc, tl, h1, h2, govtSubsidy, openingStock, h3, drawings, proj, k1, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
+
+  async function deleteAllData() {
+    try {
+      await LocalStore.delete("autosave");
+    } catch (e) {
+      // ignore — nothing to delete
+    }
+    setIdentity(Object.fromEntries([...SHG_FIELDS, ...MEMBER_FIELDS].map((f) => [f.k, ""])));
+    setDocuments(Object.fromEntries(DOCUMENTS.map((d) => [d.k, { status: "Pending", remarks: "" }])));
+    setEnterprise(Object.fromEntries(ENTERPRISE_FIELDS.map((f) => [f.k, ""])));
+    setCredit(Object.fromEntries(CREDIT_HISTORY_FIELDS.map((f) => [f.k, ""])));
+    setLoanF({
+      totalProjectCost: "", marginMoney: "", loanRequested: "",
+      ...Object.fromEntries(F1_FIELDS.map((f) => [f.k, f.k === "tenureMonths" ? 36 : f.k === "interestRate" ? 12 : ""])),
+    });
+    setWc(Object.fromEntries(F2_FIELDS.map((f) => [f.k, ""])));
+    setTl(Object.fromEntries(F3_FIELDS.map((f) => [f.k, ""])));
+    setH1({
+      high: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
+      low: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
+      avg: { months: 6, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
+    });
+    setH2(Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])));
+    setGovtSubsidy("");
+    setOpeningStock("");
+    setH3(Object.fromEntries([...CL_FIELDS, ...LTL_FIELDS, ...CA_FIELDS, ...FA_FIELDS, ...OA_FIELDS].map((f) => [f.k, ""])));
+    setDrawings("");
+    setProj({ growthSalesY2: 20, growthSalesY3: 15, growthOpexY2: 15, growthOpexY3: 12, growthEmployeesY2: 50, growthEmployeesY3: 0 });
+    setK1(Object.fromEntries(K1_FIELDS.map((f) => [f.k, ""])));
+    setHhInc(Object.fromEntries(K2_INCOME_FIELDS.map((f) => [f.k, ""])));
+    setHhExp(Object.fromEntries(K2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])));
+    setEmiL1({ monthlyHHIncomeOverride: "", monthlyHHExpenditureOverride: "", existingEmiBankOverride: "" });
+    setProjectedTurnoverOverride("");
+    setStep(0);
+    setAutosaveStatus("");
+    setRestoredFromAutosave(false);
+  }
+
+  function exportData() {
+    const payload = buildDataPayload();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1025,25 +1134,7 @@ function App() {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        if (data.identity) setIdentity((cur) => ({ ...cur, ...data.identity }));
-        if (data.documents) setDocuments((cur) => ({ ...cur, ...data.documents }));
-        if (data.enterprise) setEnterprise((cur) => ({ ...cur, ...data.enterprise }));
-        if (data.credit) setCredit((cur) => ({ ...cur, ...data.credit }));
-        if (data.loanF) setLoanF((cur) => ({ ...cur, ...data.loanF }));
-        if (data.wc) setWc((cur) => ({ ...cur, ...data.wc }));
-        if (data.tl) setTl((cur) => ({ ...cur, ...data.tl }));
-        if (data.h1) setH1(data.h1);
-        if (data.h2) setH2((cur) => ({ ...cur, ...data.h2 }));
-        if (data.govtSubsidy !== undefined) setGovtSubsidy(data.govtSubsidy);
-        if (data.openingStock !== undefined) setOpeningStock(data.openingStock);
-        if (data.h3) setH3((cur) => ({ ...cur, ...data.h3 }));
-        if (data.drawings !== undefined) setDrawings(data.drawings);
-        if (data.proj) setProj((cur) => ({ ...cur, ...data.proj }));
-        if (data.k1) setK1((cur) => ({ ...cur, ...data.k1 }));
-        if (data.hhInc) setHhInc((cur) => ({ ...cur, ...data.hhInc }));
-        if (data.hhExp) setHhExp((cur) => ({ ...cur, ...data.hhExp }));
-        if (data.emiL1) setEmiL1((cur) => ({ ...cur, ...data.emiL1 }));
-        if (data.projectedTurnoverOverride !== undefined) setProjectedTurnoverOverride(data.projectedTurnoverOverride);
+        applyImportedData(data);
         setImportOk(true);
       } catch (err) {
         setImportError("Couldn't read that file — make sure it's a JSON file exported from this app (via 'Export Data').");
@@ -1132,7 +1223,7 @@ function App() {
             >
               <Icon name="group" size={19} />
             </button>
-            <button onClick={() => setDiagOpen(true)} className="relative p-2 rounded-md hover:bg-emerald-800" aria-label="Checks">
+            <button onClick={() => setDiagOpen(true)} className="relative p-2 rounded-md hover:bg-emerald-800" aria-label="Health Check">
               <Icon name="checklist" size={19} />
               {issues.length > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-amber-600 text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
@@ -1179,10 +1270,26 @@ function App() {
                 Import Data / डेटा आयात करें
                 <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => e.target.files[0] && importData(e.target.files[0])} />
               </label>
+              <button onClick={() => setDiagOpen(true)} className="text-xs px-2 py-1 rounded-full border border-teal-700 text-teal-700 font-semibold whitespace-nowrap">
+                Health Check / स्वास्थ्य जांच {issues.length > 0 ? `(${issues.length})` : ""}
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm("Delete ALL data in this app? This cannot be undone. / क्या सभी डेटा हटाना है? इसे वापस नहीं लाया जा सकता।")) deleteAllData();
+                }}
+                className="text-xs px-2 py-1 rounded-full border border-red-700 text-red-700 font-semibold whitespace-nowrap"
+              >
+                Delete All Data / सभी डेटा हटाएं
+              </button>
             </div>
+            {restoredFromAutosave && (
+              <Banner tone="ok">Your previous data was automatically restored from this device. / आपका पिछला डेटा इस डिवाइस से स्वतः पुनर्स्थापित हो गया।</Banner>
+            )}
             {importOk && <Banner tone="ok">Data imported successfully — check each step to confirm. / डेटा सफलतापूर्वक आयात हुआ।</Banner>}
             {importError && <Banner tone="danger">{importError}</Banner>}
-            <p className="text-sm text-stone-600 mb-3">★ = mandatory / अनिवार्य · Export saves a file you can re-import later or send to someone with this same app. / एक्सपोर्ट की गई फ़ाइल को बाद में दोबारा आयात किया जा सकता है।</p>
+            <p className="text-sm text-stone-600 mb-3">
+              ★ = mandatory / अनिवार्य · Your entries are saved automatically on this device and remain even if you close the app — until you tap "Delete All Data." / आपकी प्रविष्टियां इस डिवाइस पर स्वतः सहेजी जाती हैं और तब तक बनी रहती हैं जब तक आप "Delete All Data" न दबाएं।
+            </p>
             <SubHeading>A. SHG Details / एसएचजी विवरण</SubHeading>
             <FieldGrid fields={SHG_FIELDS} obj={identity} setObj={setIdentity} />
             <SubHeading>B. Member Identification / सदस्य पहचान</SubHeading>
@@ -1237,9 +1344,19 @@ function App() {
         {step === 2 && (
           <section>
             <h2 className="serif text-xl font-bold mb-1">H. Financial Statement</h2>
+
+            <SubHeading>Opening Stock / प्रारंभिक स्टॉक</SubHeading>
+            <p className="text-xs text-stone-600 mb-2">
+              Trading Account order: Opening Stock + Purchases − Closing Stock = COGS. Enter Opening Stock here, before Purchases below. Closing Stock is auto-linked later from the Balance Sheet (Raw Material + Finished Goods Stock) — no need to enter it twice.
+            </p>
+            <Field label="Opening Stock (value of stock at start of year)" help="Value of unsold raw material/finished goods stock you had at the beginning of the year. / वर्ष की शुरुआत में बचे हुए कच्चे माल/तैयार माल का मूल्य।">
+              <NumInput value={openingStock} onChange={setOpeningStock} />
+            </Field>
+
             <SubHeading>H1. Sales & Purchases / बिक्री व खरीद – पिछले 12 महीने</SubHeading>
             {["high", "low", "avg"].map((key) => {
               const row = calc.rows.find((r) => r.key === key);
+              const periodLabel = key === "high" ? "High" : key === "low" ? "Low" : "Average";
               return (
                 <div key={key} className="bg-white rounded-lg border border-stone-300 p-3 mb-3">
                   <p className="text-xs font-semibold text-stone-500 uppercase mb-2">
@@ -1251,11 +1368,11 @@ function App() {
                       <NumInput value={h1[key].dailySale} onChange={(v) => setH1({ ...h1, [key]: { ...h1[key], dailySale: v } })} />
                     </Field>
                     {h1[key].dailySale !== "" ? (
-                      <Field label="Avg Monthly Sale" auto>
+                      <Field label={`Avg Monthly ${periodLabel} Sale`} auto>
                         <div className="mt-1 px-3 py-2 rounded-md bg-red-50 text-red-700 font-mono text-sm">{inr(row.avgMonthlySale)}</div>
                       </Field>
                     ) : (
-                      <Field label="Avg Monthly Sale (direct entry, since Daily Sale is blank)">
+                      <Field label={`Avg Monthly ${periodLabel} Sale (direct entry, since Daily Sale is blank)`}>
                         <NumInput value={h1[key].avgMonthlySaleManual} onChange={(v) => setH1({ ...h1, [key]: { ...h1[key], avgMonthlySaleManual: v } })} />
                       </Field>
                     )}
@@ -1266,12 +1383,28 @@ function App() {
               );
             })}
             <Card title="H1 Totals (auto)">
-              <Row label="Avg Monthly Sale" value={inr(calc.avgMonthlySaleTotal)} auto />
+              <Row label="Avg Monthly Sale (blended, all periods)" value={inr(calc.avgMonthlySaleTotal)} auto />
               <Row label="Total Sales (12 months)" value={inr(calc.totalSales)} auto />
               <Row label="Blended Profit Margin %" value={pct(calc.blendedMargin)} auto />
               <Row label="Total Purchases" value={inr(calc.totalPurchases)} auto />
               <Row label="Total Other Income" value={inr(calc.totalOtherIncome)} auto last />
             </Card>
+
+            <SubHeading>Trading Account: Gross Profit / व्यापार खाता: सकल लाभ</SubHeading>
+            <p className="text-xs text-stone-600 mb-2">
+              Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. This gives a more accurate Gross Profit than Sales − Purchases alone, since it accounts for unsold stock.
+            </p>
+            <Card>
+              <Row label="Opening Stock" value={inr(num(openingStock))} />
+              <Row label="+ Purchases (from H1)" value={inr(calc.totalPurchases)} auto />
+              <Row label="− Closing Stock (auto, from Balance Sheet below)" value={inr(calc.closingStock)} auto />
+              <Row label="= Cost of Goods Sold (COGS)" value={inr(calc.cogs)} bold auto />
+              <Row label="Gross Profit (Sales − COGS)" value={inr(calc.grossProfit)} auto />
+              <Row label="Gross Margin %" value={pct(calc.grossMargin)} bold last auto />
+            </Card>
+            {calc.cogs > calc.totalSales && calc.totalSales > 0 && (
+              <Banner tone="warn">Cost of Goods Sold is higher than Sales — check Opening Stock, Purchases, and Closing Stock figures.</Banner>
+            )}
 
             <SubHeading>H2. Income & Expenditure / आय व व्यय विवरण (वार्षिक)</SubHeading>
             <p className="text-xs text-stone-600 mb-2">Total Purchases and Total Sales are auto-linked from H1.</p>
@@ -1287,34 +1420,17 @@ function App() {
             </Card>
             {calc.netProfit < 0 && <Banner tone="danger">This shows a net loss for the year — repayment capacity will be weak.</Banner>}
 
-            <SubHeading>Gross Profit (Stock-Adjusted) / सकल लाभ (स्टॉक समायोजित)</SubHeading>
-            <p className="text-xs text-stone-600 mb-2">
-              Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. This gives a more accurate Gross Profit than Sales − Purchases alone, since it accounts for unsold stock. Closing Stock is auto-linked from the Balance Sheet below (Raw Material + Finished Goods Stock) — no need to enter it twice.
-            </p>
-            <Field label="Opening Stock (value of stock at start of year)" help="Value of unsold raw material/finished goods stock you had at the beginning of the year.">
-              <NumInput value={openingStock} onChange={setOpeningStock} />
-            </Field>
-            <Card>
-              <Row label="Closing Stock (auto, from Balance Sheet)" value={inr(calc.closingStock)} auto />
-              <Row label="Cost of Goods Sold (COGS)" value={inr(calc.cogs)} auto />
-              <Row label="Gross Profit (Sales − COGS)" value={inr(calc.grossProfit)} auto />
-              <Row label="Gross Margin %" value={pct(calc.grossMargin)} bold last auto />
-            </Card>
-            {calc.cogs > calc.totalSales && calc.totalSales > 0 && (
-              <Banner tone="warn">Cost of Goods Sold is higher than Sales — check Opening Stock, Purchases, and Closing Stock figures.</Banner>
-            )}
-
             <SubHeading>H3. Balance Sheet / तुलन पत्र</SubHeading>
             <p className="text-xs font-semibold text-stone-500 mb-1">A. Current Liabilities</p>
             <NumList fields={CL_FIELDS} obj={h3} setObj={setH3} />
-            <p className="text-xs text-stone-600 my-2">+ SHG Loan Outstanding {inr(num(credit.shgLoanOutstanding))} (auto from Section E)</p>
+            <p className="text-xs text-red-700 my-2">+ SHG Loan Outstanding {inr(num(credit.shgLoanOutstanding))} + Bank Loan Outstanding {inr(num(credit.bankLoanOutstanding))} + Informal Loan {inr(num(credit.informalLoan))} (all auto from Section E)</p>
 
             <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">B. Long-Term Liabilities</p>
             <NumList fields={LTL_FIELDS} obj={h3} setObj={setH3} />
 
             <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">A. Current Assets</p>
             <NumList fields={CA_FIELDS} obj={h3} setObj={setH3} />
-            <p className="text-xs text-stone-600 my-2">+ Savings with SHG {inr(num(credit.cumulativeShgSavings))} (auto from Section E)</p>
+            <p className="text-xs text-red-700 my-2">+ Savings with SHG {inr(num(credit.cumulativeShgSavings))} + Own SB Savings {inr(num(credit.ownSbSavings))} + FD/RD {inr(num(credit.fdRd))} + Other Savings {inr(num(credit.otherSavings))} (all auto from Section E)</p>
 
             <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">B. Fixed Assets</p>
             <NumList fields={FA_FIELDS} obj={h3} setObj={setH3} />
@@ -1359,7 +1475,7 @@ function App() {
             </Card>
 
             <Card title="Turnover Method (Nayak Committee)">
-              <Field label="Projected Annual Turnover — override" help="Defaults to Annual Sales from H1; override if the projected turnover differs.">
+              <Field label="Projected Annual Turnover — override" help="Defaults to Annual Sales from H1; override if the projected turnover differs. / डिफ़ॉल्ट रूप से H1 की वार्षिक बिक्री; भिन्न होने पर बदलें।">
                 <NumInput value={projectedTurnoverOverride} onChange={setProjectedTurnoverOverride} />
               </Field>
               <p className="text-xs text-stone-600 -mt-2 mb-2">Using: {inr(calc.projectedTurnover)} unless overridden.</p>
@@ -1451,7 +1567,7 @@ function App() {
               <Row label="Repayment Period (auto)" value={`${loanF.tenureMonths} months`} />
               <Row label="Annual Interest Rate (auto)" value={pct(num(loanF.interestRate))} last />
             </Card>
-            <Field label="Monthly Household Income – override" help="Defaults to the Household step's figure; override if needed.">
+            <Field label="Monthly Household Income – override" help="Defaults to the Household step's figure; override if needed. / डिफ़ॉल्ट रूप से पारिवारिक चरण का आंकड़ा; आवश्यकता होने पर बदलें।">
               <NumInput value={emiL1.monthlyHHIncomeOverride} onChange={(v) => setEmiL1({ ...emiL1, monthlyHHIncomeOverride: v })} />
             </Field>
             <p className="text-xs text-stone-600 -mt-2 mb-3">Using: {inr(calc.monthlyHHIncome)} unless overridden.</p>

@@ -68,10 +68,7 @@ const STEPS = ["Identity / पहचान", "Enterprise & Loan / उद्य�
 
 function Icon({ name, size = 16, className = "" }) {
   return (
-    <span
-      className={`material-symbols-outlined ${className}`}
-      style={{ fontSize: size, lineHeight: 1, verticalAlign: "middle", display: "inline-block" }}
-    >
+    <span className={`material-symbols-outlined ${className}`} style={{ fontSize: size, lineHeight: 1, verticalAlign: "middle", display: "inline-block" }}>
       {name}
     </span>
   );
@@ -378,6 +375,7 @@ const CHAT_KB = [
   { k: ["material cost", "loan amount same", "quoted price"], a: "The Loan Amount should never equal the full cost of material or the asset being purchased — margin money has to come from the applicant. If you see a warning about this in Checks, it means the requested loan looks too close to the full cost." },
   { k: ["balance sheet", "tally", "owner's capital", "owners capital"], a: "Owner's Capital = Total Assets − Total Liabilities other than capital. Because of this formula, the balance sheet always tallies by construction — Owner's Capital is the balancing figure. If it comes out negative, that's a real warning sign (liabilities exceed assets), which shows up in Checks." },
   { k: ["family labour", "family labor"], a: "Family Labour is the imputed value of unpaid work done by family members in the business — even though no wage is actually paid, it's still a real cost of running the business and should be estimated and included." },
+  { k: ["opening stock", "closing stock", "cogs", "cost of goods sold"], a: "Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. Opening Stock is what you had at the start of the year (enter it in Step 3); Closing Stock is auto-linked from the Balance Sheet's Raw Material + Finished Goods Stock, so you don't enter it twice. This gives a more accurate Gross Profit than just Sales − Purchases." },
   { k: ["daily sale", "monthly sale"], a: "Fill either one — whichever is easier for you. If you enter Daily Sale, Avg Monthly Sale is calculated automatically (shown in red). If Daily Sale is left blank, a direct Avg Monthly Sale field appears for you to fill instead." },
   { k: ["growth", "projection", "growth rate"], a: "The growth % you enter for Year 2 and Year 3 projects how much Sales and Operating Expenditure might increase. A realistic rate is usually 10-20% for a stable small business — very high rates (40%+) make the projection unreliable, so keep it conservative unless there's a clear reason (like a big new loan-funded expansion) to expect faster growth." },
   { k: ["household expense", "hh expense"], a: "Include housing/utilities, food & groceries, transport, education, medical, and social/festival expenses. Don't include business expenses here — those belong in the Financials step." },
@@ -599,6 +597,10 @@ function BPMPanel({ open, onClose, submissions, loading, error, onRefresh }) {
 
 function App() {
   const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [step]);
   const [chatOpen, setChatOpen] = useState(false);
   const [diagOpen, setDiagOpen] = useState(false);
   const [bpmOpen, setBpmOpen] = useState(false);
@@ -626,6 +628,7 @@ function App() {
   });
   const [h2, setH2] = useState(Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])));
   const [govtSubsidy, setGovtSubsidy] = useState("");
+  const [openingStock, setOpeningStock] = useState("");
   const [h3, setH3] = useState(
     Object.fromEntries([...CL_FIELDS, ...LTL_FIELDS, ...CA_FIELDS, ...FA_FIELDS, ...OA_FIELDS].map((f) => [f.k, ""]))
   );
@@ -698,7 +701,10 @@ function App() {
     const totalIncome = totalSales + totalOtherIncome + num(govtSubsidy);
     const netProfit = totalIncome - totalExpenditure;
     const netMargin = totalSales ? (netProfit / totalSales) * 100 : 0;
-    const grossProfit = totalSales - totalPurchases;
+    // Closing Stock is auto-linked from the Balance Sheet's stock values (Step 3, H3) — no need to enter it twice.
+    const closingStock = num(h3.rawMaterialStock) + num(h3.finishedGoodsStock);
+    const cogs = num(openingStock) + totalPurchases - closingStock;
+    const grossProfit = totalSales - cogs;
     const grossMargin = totalSales ? (grossProfit / totalSales) * 100 : 0;
     const avgMonthlyNetProfit = netProfit / 12;
 
@@ -782,7 +788,7 @@ function App() {
 
     return {
       rows, totalSales, totalPurchases, totalOtherIncome, avgMonthlySaleTotal, blendedMargin,
-      totalExpenditure, totalIncome, netProfit, netMargin, grossProfit, grossMargin, avgMonthlyNetProfit,
+      totalExpenditure, totalIncome, netProfit, netMargin, closingStock, cogs, grossProfit, grossMargin, avgMonthlyNetProfit,
       totalCL, totalLTL, totalCA, totalFA, totalOA, totalAssets, ownersCapital, totalNetWorth, totalLiabilities, balances,
       clOtherThanBankBorrowings, workingCapitalGap, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
       projectedTurnover, turnoverWcRequirement, turnoverMargin, turnoverBankFinance,
@@ -792,7 +798,7 @@ function App() {
       calculatedEmi, surplusBeforeNewEmi, surplusAfterNewEmi, safeEmiCapacity, maxEligibleLoan, minTenureMonths,
       foir, dscr, recommendation, tone, loanReq, totalExistingEmi, existingEmiShg, existingEmiBank, emiMonthlyHHExpenditureExclEmi,
     };
-  }, [h1, h2, govtSubsidy, h3, drawings, credit, proj, loanF, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
+  }, [h1, h2, govtSubsidy, openingStock, h3, drawings, credit, proj, loanF, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
 
   // Auto-suggest the proposed EMI from the PMT calculation once loan terms are entered (still overridable)
   useEffect(() => {
@@ -980,6 +986,7 @@ function App() {
       transport: 8400, packing: 4200, interestShgPaid: 3240, bankCharges: 600, depreciation: 4500, otherExp1: 2400,
     }));
     setGovtSubsidy(6000);
+    setOpeningStock(24000);
     setH3((h) => ({
       ...h, clCreditSuppliers: 8000, clInformalLoans: 10000, ltBankTermLoan: 150000,
       cashInHand: 3500, cashInBank: 8500, fdRdAsset: 5000, debtors: 4200, rawMaterialStock: 18000, finishedGoodsStock: 12000,
@@ -996,7 +1003,7 @@ function App() {
 
   function exportData() {
     const payload = {
-      identity, documents, enterprise, credit, loanF, wc, tl, h1, h2, govtSubsidy, h3, drawings, proj, k1, hhInc, hhExp,
+      identity, documents, enterprise, credit, loanF, wc, tl, h1, h2, govtSubsidy, openingStock, h3, drawings, proj, k1, hhInc, hhExp,
       emiL1, projectedTurnoverOverride,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -1028,6 +1035,7 @@ function App() {
         if (data.h1) setH1(data.h1);
         if (data.h2) setH2((cur) => ({ ...cur, ...data.h2 }));
         if (data.govtSubsidy !== undefined) setGovtSubsidy(data.govtSubsidy);
+        if (data.openingStock !== undefined) setOpeningStock(data.openingStock);
         if (data.h3) setH3((cur) => ({ ...cur, ...data.h3 }));
         if (data.drawings !== undefined) setDrawings(data.drawings);
         if (data.proj) setProj((cur) => ({ ...cur, ...data.proj }));
@@ -1063,6 +1071,9 @@ function App() {
 
     if (calc.ownersCapital < 0)
       list.push({ tone: "danger", title: "Negative owner's capital", detail: `Total liabilities other than capital (${inr(calc.totalCL + calc.totalLTL)}) exceed total assets (${inr(calc.totalAssets)}) by ${inr(Math.abs(calc.ownersCapital))}.`, fix: "The business may be technically insolvent on paper. Re-check liability entries in Step 3, or this loan needs stronger justification before proceeding." });
+
+    if (calc.cogs > calc.totalSales && calc.totalSales > 0)
+      list.push({ tone: "warn", title: "Cost of Goods Sold exceeds Sales", detail: `COGS is ${inr(calc.cogs)} against Sales of ${inr(calc.totalSales)}.`, fix: "Re-check Opening Stock, Purchases, and Closing Stock (Balance Sheet) figures in Step 3 — one of these is likely overstated or understated." });
 
     if (calc.netProfit < 0)
       list.push({ tone: "danger", title: "Business is loss-making", detail: `Net loss of ${inr(Math.abs(calc.netProfit))} for the year.`, fix: "Review expenditure heads for overstatement, or hold off on this loan until margins improve." });
@@ -1142,7 +1153,7 @@ function App() {
         {STEPS.map((s, i) => (
           <button
             key={s}
-            onClick={() => i < step && setStep(i)}
+            onClick={() => setStep(i)}
             className={`flex-1 text-center px-2 py-3 text-xs font-semibold border-b-2 transition-colors ${
               i === step ? "border-amber-600 text-emerald-900" : i < step ? "border-green-700 text-green-700" : "border-transparent text-stone-400"
             }`}
@@ -1275,6 +1286,23 @@ function App() {
               <Row label="Net Profit / (Loss) [B − A]" value={inr(calc.netProfit)} bold last auto />
             </Card>
             {calc.netProfit < 0 && <Banner tone="danger">This shows a net loss for the year — repayment capacity will be weak.</Banner>}
+
+            <SubHeading>Gross Profit (Stock-Adjusted) / सकल लाभ (स्टॉक समायोजित)</SubHeading>
+            <p className="text-xs text-stone-600 mb-2">
+              Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. This gives a more accurate Gross Profit than Sales − Purchases alone, since it accounts for unsold stock. Closing Stock is auto-linked from the Balance Sheet below (Raw Material + Finished Goods Stock) — no need to enter it twice.
+            </p>
+            <Field label="Opening Stock (value of stock at start of year)" help="Value of unsold raw material/finished goods stock you had at the beginning of the year.">
+              <NumInput value={openingStock} onChange={setOpeningStock} />
+            </Field>
+            <Card>
+              <Row label="Closing Stock (auto, from Balance Sheet)" value={inr(calc.closingStock)} auto />
+              <Row label="Cost of Goods Sold (COGS)" value={inr(calc.cogs)} auto />
+              <Row label="Gross Profit (Sales − COGS)" value={inr(calc.grossProfit)} auto />
+              <Row label="Gross Margin %" value={pct(calc.grossMargin)} bold last auto />
+            </Card>
+            {calc.cogs > calc.totalSales && calc.totalSales > 0 && (
+              <Banner tone="warn">Cost of Goods Sold is higher than Sales — check Opening Stock, Purchases, and Closing Stock figures.</Banner>
+            )}
 
             <SubHeading>H3. Balance Sheet / तुलन पत्र</SubHeading>
             <p className="text-xs font-semibold text-stone-500 mb-1">A. Current Liabilities</p>
@@ -1561,8 +1589,9 @@ function Report({ identity, enterprise, credit, loanF, calc }) {
 
       <SubHeading>2. Business Performance / व्यवसाय प्रदर्शन</SubHeading>
       <Row label="Annual Sales" value={inr(calc.totalSales)} auto />
-      <Row label="Gross Profit" value={inr(calc.grossProfit)} />
-      <Row label="Gross Margin" value={pct(calc.grossMargin)} />
+      <Row label="Cost of Goods Sold (COGS)" value={inr(calc.cogs)} auto />
+      <Row label="Gross Profit" value={inr(calc.grossProfit)} auto />
+      <Row label="Gross Margin" value={pct(calc.grossMargin)} auto />
       <Row label="Net Profit" value={inr(calc.netProfit)} auto />
       <Row label="Net Margin" value={pct(calc.netMargin)} />
       <Row label="Avg Monthly Net Profit" value={inr(calc.avgMonthlyNetProfit)} last auto />

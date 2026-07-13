@@ -167,6 +167,7 @@ function SelectInput({ value, onChange, opts }) {
       onChange={(e) => onChange(e.target.value)}
       className="mt-1 w-full px-3 py-2 border border-stone-400 rounded-md bg-white outline-none focus:ring-2 focus:ring-amber-600 text-sm"
     >
+      <option value="" disabled hidden>— Select / चुनें —</option>
       {opts.map((o) => <option key={o}>{o}</option>)}
     </select>
   );
@@ -268,6 +269,7 @@ const CREDIT_HISTORY_FIELDS = [
   { k: "cumulativeShgSavings", l: "Cumulative SHG Savings / संचित एसएचजी बचत", type: "number", help: "Auto-links to Balance Sheet current assets. / तुलन पत्र की चालू परिसंपत्तियों से स्वतः जुड़ा।" },
   { k: "ownSbSavings", l: "Savings in Own Bank SB A/c / स्वयं के बचत खाते में जमा", type: "number" }, { k: "fdRd", l: "FD / RD with Bank / बैंक में एफडी / आरडी", type: "number" },
   { k: "otherSavings", l: "Any Other Savings / Investment / कोई अन्य बचत / निवेश", type: "number" },
+  { k: "bankLoanOutstanding", l: "Bank Loan Outstanding / बकाया बैंक ऋण", type: "number", help: "Auto-links to Balance Sheet long-term liabilities (Bank Term Loan). / तुलन पत्र की दीर्घकालिक देनदारियों से स्वतः जुड़ा।" },
   { k: "bankLoanEmi", l: "Bank Loan Monthly EMI / बैंक ऋण मासिक ईएमआई", type: "number" }, { k: "informalLoan", l: "Informal Loan – Family / Friends / अनौपचारिक ऋण – परिवार / मित्र", type: "number" },
   { k: "cibilScore", l: "CIBIL Score (if available) / सिबिल स्कोर (यदि उपलब्ध हो)", type: "text", placeholder: "e.g. NTC" },
 ];
@@ -303,9 +305,9 @@ const CL_FIELDS = [
   { k: "clAdvanceReceived", l: "Advance Received from Customers / ग्राहकों से प्राप्त अग्रिम" }, { k: "clGstPayable", l: "GST / Tax Payable / जीएसटी / देय कर" },
   { k: "clOther", l: "Other Current Liabilities / अन्य चालू देनदारियां" },
 ];
-const LTL_FIELDS = [{ k: "ltBankTermLoan", l: "Bank Term Loan Outstanding / बकाया बैंक टर्म लोन" }, { k: "ltOther", l: "Other Long-Term Liabilities / अन्य दीर्घकालिक देनदारियां" }];
+const LTL_FIELDS = [{ k: "ltOther", l: "Other Long-Term Liabilities / अन्य दीर्घकालिक देनदारियां" }];
 const CA_FIELDS = [
-  { k: "cashInHand", l: "Cash in Hand / हाथ में नकद" }, { k: "cashInBank", l: "Cash in Bank – Own SB A/c / बैंक में नकद – स्वयं का बचत खाता" }, { k: "fdRdAsset", l: "FD / RD with Bank / बैंक में एफडी / आरडी" },
+  { k: "cashInHand", l: "Cash in Hand / हाथ में नकद" },
   { k: "advancePaidSuppliers", l: "Advance Paid to Suppliers / आपूर्तिकर्ताओं को दिया गया अग्रिम" }, { k: "debtors", l: "Debtors – Credit Given to Customers / देनदार – ग्राहकों को दिया गया उधार" },
   { k: "rawMaterialStock", l: "Value of Raw Material Stock / कच्चे माल स्टॉक का मूल्य" }, { k: "finishedGoodsStock", l: "Value of Finished Goods Stock / तैयार माल स्टॉक का मूल्य" }, { k: "otherCA", l: "Other Current Assets / अन्य चालू परिसंपत्तियां" },
 ];
@@ -723,7 +725,7 @@ function App() {
 
     // H3 balance sheet
     const totalCL = sum(num(credit.shgLoanOutstanding), num(credit.informalLoan), ...CL_FIELDS.map((f) => h3[f.k]));
-    const totalLTL = sum(...LTL_FIELDS.map((f) => h3[f.k]));
+    const totalLTL = sum(num(credit.bankLoanOutstanding), ...LTL_FIELDS.map((f) => h3[f.k]));
     const totalCA = sum(num(credit.cumulativeShgSavings), num(credit.ownSbSavings), num(credit.fdRd), num(credit.otherSavings), ...CA_FIELDS.map((f) => h3[f.k]));
     const totalFA = sum(...FA_FIELDS.map((f) => h3[f.k]));
     const totalOA = sum(...OA_FIELDS.map((f) => h3[f.k]));
@@ -735,8 +737,7 @@ function App() {
     const balances = Math.round(totalAssets) === Math.round(totalLiabilities); // true by construction — capital is the plug
 
     // Working Capital Assessment — Tandon Committee method (Method I & II) + Turnover method (Nayak Committee)
-    const clBankBorrowings = num(h3.clBankLoanST) + num(credit.shgLoanOutstanding);
-    const bankLoanOutstandingTotal = num(h3.clBankLoanST) + num(h3.ltBankTermLoan);
+    const clBankBorrowings = num(h3.clBankLoanST) + num(credit.shgLoanOutstanding) + num(credit.bankLoanOutstanding);
     const clOtherThanBankBorrowings = totalCL - clBankBorrowings;
     const workingCapitalGap = totalCA - clOtherThanBankBorrowings;
     const tandonMethod1Mpbf = Math.max(workingCapitalGap, 0) * 0.75;
@@ -804,7 +805,7 @@ function App() {
       rows, totalSales, totalPurchases, totalOtherIncome, avgMonthlySaleTotal, blendedMargin,
       totalExpenditure, totalIncome, netProfit, netMargin, closingStock, cogs, grossProfit, grossMargin, avgMonthlyNetProfit,
       totalCL, totalLTL, totalCA, totalFA, totalOA, totalAssets, ownersCapital, totalNetWorth, totalLiabilities, balances,
-      clOtherThanBankBorrowings, workingCapitalGap, bankLoanOutstandingTotal, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
+      clOtherThanBankBorrowings, workingCapitalGap, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
       projectedTurnover, turnoverWcRequirement, turnoverMargin, turnoverBankFinance,
       salesY2, salesY3, opexY2, opexY3, purchasesY2, purchasesY3, netProfitY1, netProfitY2, netProfitY3, annualEmi,
       hhIncomeTotalWithBiz, hhExpTotal, householdSurplusAnnual, monthlyHHIncome, monthlyHHExpenditure, monthlyHouseholdSurplus,
@@ -982,11 +983,12 @@ function App() {
     setEnterprise((e) => ({
       ...e, enterpriseName: "Sunita General Store", enterpriseType: "Trading", activityType: "Grocery retail",
       currentActivity: "Grocery & household goods retail", experience: 5, employees: 1, recordsAvailable: "Yes", recordsType: "Notebook ledger",
+      premises: "Rented", monthlyRent: 1200,
     }));
     setCredit((c) => ({
       ...c, memberSince: 6, loansLast3Yrs: 3, lastLoanAmount: 15000, highestLoanEver: 20000,
       shgLoanOutstanding: 18000, shgEmi: 1500, shgInterestRate: 12, cumulativeShgSavings: 22000,
-      bankLoanEmi: 0,
+      ownSbSavings: 8500, fdRd: 5000, bankLoanOutstanding: 150000, bankLoanEmi: 0, informalLoan: 10000,
     }));
     setTl((t) => ({ ...t, tlPurpose: "Shop refrigerator & shelving", assetDescription: "Refrigerator + display shelving", newOrReplacement: "New Purchase", assetLife: 8, quotedPrice: 150000 }));
     setWc((w) => ({ ...w, wcPurpose: "Stock purchase", totalWcRequired: 30000 }));
@@ -1002,8 +1004,8 @@ function App() {
     setGovtSubsidy(6000);
     setOpeningStock(24000);
     setH3((h) => ({
-      ...h, clCreditSuppliers: 8000, clInformalLoans: 10000, ltBankTermLoan: 150000,
-      cashInHand: 3500, cashInBank: 8500, fdRdAsset: 5000, debtors: 4200, rawMaterialStock: 18000, finishedGoodsStock: 12000,
+      ...h, clCreditSuppliers: 8000,
+      cashInHand: 3500, debtors: 4200, rawMaterialStock: 18000, finishedGoodsStock: 12000,
       plantMachinery: 150000, toolsEquipment: 6000, furniture: 6000, securityDeposits: 5000,
     }));
     setDrawings(6000);
@@ -1179,8 +1181,8 @@ function App() {
     if (calc.ownersCapital < 0)
       list.push({ tone: "danger", title: "Negative owner's capital", detail: `Total liabilities other than capital (${inr(calc.totalCL + calc.totalLTL)}) exceed total assets (${inr(calc.totalAssets)}) by ${inr(Math.abs(calc.ownersCapital))}.`, fix: "The business may be technically insolvent on paper. Re-check liability entries in Step 3, or this loan needs stronger justification before proceeding." });
 
-    if (enterprise.premises === "Owned" && num(h2.rent) > 0)
-      list.push({ tone: "warn", title: "Rent booked despite Owned premises", detail: `Business Premises is marked "Owned" but ${inr(num(h2.rent))} of Rent is booked in Income & Expenditure (Step 3).`, fix: "If the premises is genuinely owned, remove the Rent expense. If rent is actually paid (e.g. for a separate shop), change Business Premises to 'Rented' in Step 2." });
+    if (enterprise.premises !== "Rented" && num(h2.rent) > 0)
+      list.push({ tone: "warn", title: "Rent booked but premises not marked Rented", detail: `Business Premises is "${enterprise.premises || "not set"}" but ${inr(num(h2.rent))} of Rent is booked in Income & Expenditure (Step 3).`, fix: "If rent is genuinely paid, set Business Premises to 'Rented' in Step 2. If the premises is owned, remove the Rent expense instead." });
 
     if (calc.cogs > calc.totalSales && calc.totalSales > 0)
       list.push({ tone: "warn", title: "Cost of Goods Sold exceeds Sales", detail: `COGS is ${inr(calc.cogs)} against Sales of ${inr(calc.totalSales)}.`, fix: "Re-check Opening Stock, Purchases, and Closing Stock (Balance Sheet) figures in Step 3 — one of these is likely overstated or understated." });
@@ -1343,10 +1345,6 @@ function App() {
 
             <SubHeading>E. Member Credit History with SHG & Banks / एसएचजी व बैंक ऋण इतिहास</SubHeading>
             <FieldGrid fields={CREDIT_HISTORY_FIELDS} obj={credit} setObj={setCredit} />
-            <Field label="Bank Loan Outstanding (auto, from Balance Sheet Short-Term + Term Loan)" auto>
-              <div className="mt-1 px-3 py-2 rounded-md bg-red-50 text-red-700 font-mono text-sm">{inr(calc.bankLoanOutstandingTotal)}</div>
-            </Field>
-            <p className="text-xs text-stone-600 mb-3">Enter the actual outstanding bank loan amounts in the Balance Sheet (Step 3) — this figure updates automatically so it always matches. / तुलन पत्र (चरण 3) में वास्तविक राशि भरें — यह स्वतः मेल खाएगा।</p>
 
             <SubHeading>F1. Project Cost & Funding / परियोजना लागत व वित्तपोषण</SubHeading>
             <Banner tone="warn">
@@ -1451,15 +1449,36 @@ function App() {
 
             <SubHeading>H3. Balance Sheet / तुलन पत्र</SubHeading>
             <p className="text-xs font-semibold text-stone-500 mb-1">A. Current Liabilities</p>
-            <NumList fields={CL_FIELDS} obj={h3} setObj={setH3} />
-            <p className="text-xs text-red-700 my-2">+ SHG Loan Outstanding {inr(num(credit.shgLoanOutstanding))} + Informal Loan {inr(num(credit.informalLoan))} (auto from Section E). Bank Loan (Short Term + Term Loan) is entered directly here in the Balance Sheet.</p>
+            <NumList
+              fields={CL_FIELDS}
+              obj={h3}
+              setObj={setH3}
+              extraRows={[
+                { label: "SHG Loan Outstanding (auto, from Section E)", value: inr(num(credit.shgLoanOutstanding)) },
+                { label: "Informal Loan (auto, from Section E)", value: inr(num(credit.informalLoan)) },
+              ]}
+            />
 
             <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">B. Long-Term Liabilities</p>
-            <NumList fields={LTL_FIELDS} obj={h3} setObj={setH3} />
+            <NumList
+              fields={LTL_FIELDS}
+              obj={h3}
+              setObj={setH3}
+              extraRows={[{ label: "Bank Term Loan Outstanding (auto, from Section E)", value: inr(num(credit.bankLoanOutstanding)) }]}
+            />
 
             <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">A. Current Assets</p>
-            <NumList fields={CA_FIELDS} obj={h3} setObj={setH3} />
-            <p className="text-xs text-red-700 my-2">+ Savings with SHG {inr(num(credit.cumulativeShgSavings))} + Own SB Savings {inr(num(credit.ownSbSavings))} + FD/RD {inr(num(credit.fdRd))} + Other Savings {inr(num(credit.otherSavings))} (all auto from Section E)</p>
+            <NumList
+              fields={CA_FIELDS}
+              obj={h3}
+              setObj={setH3}
+              extraRows={[
+                { label: "Savings with SHG (auto, from Section E)", value: inr(num(credit.cumulativeShgSavings)) },
+                { label: "Cash in Bank – Own SB A/c (auto, from Section E)", value: inr(num(credit.ownSbSavings)) },
+                { label: "FD / RD with Bank (auto, from Section E)", value: inr(num(credit.fdRd)) },
+                { label: "Other Savings / Investment (auto, from Section E)", value: inr(num(credit.otherSavings)) },
+              ]}
+            />
 
             <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">B. Fixed Assets</p>
             <NumList fields={FA_FIELDS} obj={h3} setObj={setH3} />

@@ -234,8 +234,8 @@ const SHG_FIELDS = [
 const MEMBER_FIELDS = [
   { k: "memberName", l: "Member Name / सदस्य का नाम", type: "text" }, { k: "fatherHusband", l: "Father / Husband Name / पिता / पति का नाम", type: "text" },
   { k: "memberId", l: "Member ID / सदस्य आईडी", type: "text" }, { k: "dob", l: "Date of Birth / जन्म तिथि", type: "date" },
-  { k: "aadhaar", l: "Aadhaar Number / आधार संख्या", type: "text", mandatory: true }, { k: "pan", l: "PAN Number / पैन संख्या", type: "text", mandatory: true },
-  { k: "mobile", l: "Mobile Number / मोबाइल नंबर", type: "text", mandatory: true }, { k: "email", l: "Email / WhatsApp ID / ईमेल / व्हाट्सएप आईडी", type: "text", mandatory: true },
+  { k: "pan", l: "PAN Number / पैन संख्या", type: "text", mandatory: true },
+  { k: "mobile", l: "Mobile Number / मोबाइल नंबर", type: "text", mandatory: true },
   { k: "udyam", l: "Udyam Registration No. / उद्यम पंजीकरण संख्या", type: "text", mandatory: true }, { k: "gst", l: "GST Registration No. / जीएसटी पंजीकरण संख्या", type: "text", mandatory: true },
   { k: "memberBankName", l: "Bank Name (Member) / बैंक का नाम (सदस्य)", type: "text" }, { k: "memberBranchName", l: "Branch Name (Member) / शाखा का नाम (सदस्य)", type: "text" },
   { k: "memberIfsc", l: "IFSC Code (Member) / आईएफएससी कोड (सदस्य)", type: "text" }, { k: "memberSbAccount", l: "SB Account No. (Member) / बचत खाता संख्या (सदस्य)", type: "text" },
@@ -243,7 +243,7 @@ const MEMBER_FIELDS = [
 ];
 const DOCUMENTS = [
   { k: "aadhaarCard", l: "Aadhaar Card / आधार कार्ड", mandatory: true }, { k: "panCard", l: "PAN Card / पैन कार्ड", mandatory: true },
-  { k: "mobileLinked", l: "Mobile No. linked to Aadhaar / आधार से जुड़ा मोबाइल नंबर", mandatory: true }, { k: "emailId", l: "Email ID / WhatsApp / ईमेल आईडी / व्हाट्सएप", mandatory: true },
+  { k: "mobileLinked", l: "Mobile No. linked to Aadhaar / आधार से जुड़ा मोबाइल नंबर", mandatory: true },
   { k: "gstCert", l: "GST Certificate (if registered) / जीएसटी प्रमाणपत्र (यदि पंजीकृत हो)", mandatory: true }, { k: "udyamCert", l: "Udyam / MSME Registration Certificate / उद्यम / एमएसएमई पंजीकरण प्रमाणपत्र", mandatory: true },
   { k: "passbook6mo", l: "Bank Passbook / Statement – 6 months / बैंक पासबुक / विवरण – 6 महीने", mandatory: false }, { k: "shgPassbook", l: "SHG Passbook / एसएचजी पासबुक", mandatory: false },
   { k: "addressProof", l: "Proof of Business Address / व्यवसाय पते का प्रमाण", mandatory: false }, { k: "premisesPhoto", l: "Photograph of Business Premises / व्यवसाय परिसर की फोटो", mandatory: false },
@@ -267,12 +267,12 @@ const CREDIT_HISTORY_FIELDS = [
   { k: "emiDelays", l: "EMI Delays >30 days (last 12 months) / ईएमआई विलंब >30 दिन (पिछले 12 महीने)", type: "number", prefix: "#" },
   { k: "cumulativeShgSavings", l: "Cumulative SHG Savings / संचित एसएचजी बचत", type: "number", help: "Auto-links to Balance Sheet current assets. / तुलन पत्र की चालू परिसंपत्तियों से स्वतः जुड़ा।" },
   { k: "ownSbSavings", l: "Savings in Own Bank SB A/c / स्वयं के बचत खाते में जमा", type: "number" }, { k: "fdRd", l: "FD / RD with Bank / बैंक में एफडी / आरडी", type: "number" },
-  { k: "otherSavings", l: "Any Other Savings / Investment / कोई अन्य बचत / निवेश", type: "number" }, { k: "bankLoanOutstanding", l: "Bank Loan Outstanding / बकाया बैंक ऋण", type: "number" },
+  { k: "otherSavings", l: "Any Other Savings / Investment / कोई अन्य बचत / निवेश", type: "number" },
   { k: "bankLoanEmi", l: "Bank Loan Monthly EMI / बैंक ऋण मासिक ईएमआई", type: "number" }, { k: "informalLoan", l: "Informal Loan – Family / Friends / अनौपचारिक ऋण – परिवार / मित्र", type: "number" },
   { k: "cibilScore", l: "CIBIL Score (if available) / सिबिल स्कोर (यदि उपलब्ध हो)", type: "text", placeholder: "e.g. NTC" },
 ];
 const F1_FIELDS = [
-  { k: "marginSource", l: "Source of Margin Money / मार्जिन मनी का स्रोत", type: "text" },
+  { k: "marginSource", l: "Source of Margin Money / मार्जिन मनी का स्रोत", type: "select", opts: ["Bank Savings Account", "SHG Savings", "Savings in Business", "Other"] },
   { k: "facilityType", l: "Loan Facility Type / ऋण सुविधा प्रकार", type: "select", opts: ["Term Loan", "Working Capital", "Composite"] },
   { k: "tenureMonths", l: "Repayment Period Requested (Months) / अनुरोधित पुनर्भुगतान अवधि (महीने)", type: "number", prefix: "#" },
   { k: "proposedEmi", l: "Proposed Monthly EMI (auto-suggested from PMT, override if needed) / प्रस्तावित मासिक ईएमआई (स्वतः सुझाई गई, आवश्यकता होने पर बदलें)", type: "number" },
@@ -345,16 +345,17 @@ function NumRow({ f, obj, setObj }) {
     </label>
   );
 }
-function NumList({ fields, obj, setObj, extraRow }) {
+function NumList({ fields, obj, setObj, extraRow, extraRows }) {
+  const rows = extraRows || (extraRow ? [extraRow] : []);
   return (
     <div className="bg-white rounded-lg border border-stone-300 px-3">
       {fields.map((f) => <NumRow key={f.k} f={f} obj={obj} setObj={setObj} />)}
-      {extraRow && (
-        <div className="flex items-center justify-between gap-3 py-1.5 bg-red-50 -mx-3 px-3">
-          <span className="text-sm text-stone-800 flex-1">{extraRow.label}</span>
-          <span className="text-sm font-mono font-semibold text-red-700">{extraRow.value}</span>
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-center justify-between gap-3 py-1.5 bg-red-50 -mx-3 px-3">
+          <span className="text-sm text-stone-800 flex-1">{r.label}</span>
+          <span className="text-sm font-mono font-semibold text-red-700">{r.value}</span>
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -721,7 +722,7 @@ function App() {
     const avgMonthlyNetProfit = netProfit / 12;
 
     // H3 balance sheet
-    const totalCL = sum(num(credit.shgLoanOutstanding), num(credit.bankLoanOutstanding), num(credit.informalLoan), ...CL_FIELDS.map((f) => h3[f.k]));
+    const totalCL = sum(num(credit.shgLoanOutstanding), num(credit.informalLoan), ...CL_FIELDS.map((f) => h3[f.k]));
     const totalLTL = sum(...LTL_FIELDS.map((f) => h3[f.k]));
     const totalCA = sum(num(credit.cumulativeShgSavings), num(credit.ownSbSavings), num(credit.fdRd), num(credit.otherSavings), ...CA_FIELDS.map((f) => h3[f.k]));
     const totalFA = sum(...FA_FIELDS.map((f) => h3[f.k]));
@@ -734,7 +735,8 @@ function App() {
     const balances = Math.round(totalAssets) === Math.round(totalLiabilities); // true by construction — capital is the plug
 
     // Working Capital Assessment — Tandon Committee method (Method I & II) + Turnover method (Nayak Committee)
-    const clBankBorrowings = num(h3.clBankLoanST) + num(credit.shgLoanOutstanding) + num(credit.bankLoanOutstanding);
+    const clBankBorrowings = num(h3.clBankLoanST) + num(credit.shgLoanOutstanding);
+    const bankLoanOutstandingTotal = num(h3.clBankLoanST) + num(h3.ltBankTermLoan);
     const clOtherThanBankBorrowings = totalCL - clBankBorrowings;
     const workingCapitalGap = totalCA - clOtherThanBankBorrowings;
     const tandonMethod1Mpbf = Math.max(workingCapitalGap, 0) * 0.75;
@@ -802,7 +804,7 @@ function App() {
       rows, totalSales, totalPurchases, totalOtherIncome, avgMonthlySaleTotal, blendedMargin,
       totalExpenditure, totalIncome, netProfit, netMargin, closingStock, cogs, grossProfit, grossMargin, avgMonthlyNetProfit,
       totalCL, totalLTL, totalCA, totalFA, totalOA, totalAssets, ownersCapital, totalNetWorth, totalLiabilities, balances,
-      clOtherThanBankBorrowings, workingCapitalGap, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
+      clOtherThanBankBorrowings, workingCapitalGap, bankLoanOutstandingTotal, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
       projectedTurnover, turnoverWcRequirement, turnoverMargin, turnoverBankFinance,
       salesY2, salesY3, opexY2, opexY3, purchasesY2, purchasesY3, netProfitY1, netProfitY2, netProfitY3, annualEmi,
       hhIncomeTotalWithBiz, hhExpTotal, householdSurplusAnnual, monthlyHHIncome, monthlyHHExpenditure, monthlyHouseholdSurplus,
@@ -975,7 +977,7 @@ function App() {
     setIdentity((i) => ({
       ...i, shgName: "Jai Bhavani SHG", memberName: "Sunita Devi", fatherHusband: "Ramesh Devi",
       district: "Wardha", state: "Maharashtra", bankName: "Bank of Maharashtra", branchName: "Wardha Main",
-      aadhaar: "XXXX-XXXX-1234", pan: "ABCDE1234F", mobile: "98765 43210", vittaSakhi: "Meena Tai",
+      pan: "ABCDE1234F", mobile: "98765 43210", vittaSakhi: "Meena Tai",
     }));
     setEnterprise((e) => ({
       ...e, enterpriseName: "Sunita General Store", enterpriseType: "Trading", activityType: "Grocery retail",
@@ -984,7 +986,7 @@ function App() {
     setCredit((c) => ({
       ...c, memberSince: 6, loansLast3Yrs: 3, lastLoanAmount: 15000, highestLoanEver: 20000,
       shgLoanOutstanding: 18000, shgEmi: 1500, shgInterestRate: 12, cumulativeShgSavings: 22000,
-      bankLoanOutstanding: 0, bankLoanEmi: 0,
+      bankLoanEmi: 0,
     }));
     setTl((t) => ({ ...t, tlPurpose: "Shop refrigerator & shelving", assetDescription: "Refrigerator + display shelving", newOrReplacement: "New Purchase", assetLife: 8, quotedPrice: 150000 }));
     setWc((w) => ({ ...w, wcPurpose: "Stock purchase", totalWcRequired: 30000 }));
@@ -1150,6 +1152,20 @@ function App() {
     return [];
   };
 
+  const monthsTotal = num(h1.high.months) + num(h1.low.months) + num(h1.avg.months);
+  const monthsDiff = 12 - monthsTotal;
+
+  const hardBlockReason = () => {
+    if (step === 0) {
+      const pending = DOCUMENTS.filter((d) => documents[d.k].status !== "Collected" && documents[d.k].status !== "Not Applicable").map((d) => d.l.split(" / ")[0]);
+      if (pending.length) return `All documents must be marked Collected (or Not Applicable) before continuing. Still pending: ${pending.join(", ")}. / आगे बढ़ने से पहले सभी दस्तावेज़ Collected होने चाहिए।`;
+    }
+    if (step === 2) {
+      if (monthsTotal !== 12) return `High + Low + Average period months must add up to 12 (currently ${monthsTotal}, difference of ${monthsDiff > 0 ? monthsDiff + " short" : Math.abs(monthsDiff) + " over"}). / महीनों का कुल योग 12 होना चाहिए (वर्तमान: ${monthsTotal})।`;
+    }
+    return null;
+  };
+
   const issues = useMemo(() => {
     const list = [];
     const missingMandatory = MEMBER_FIELDS.filter((f) => f.mandatory && !identity[f.k]).map((f) => f.l);
@@ -1162,6 +1178,9 @@ function App() {
 
     if (calc.ownersCapital < 0)
       list.push({ tone: "danger", title: "Negative owner's capital", detail: `Total liabilities other than capital (${inr(calc.totalCL + calc.totalLTL)}) exceed total assets (${inr(calc.totalAssets)}) by ${inr(Math.abs(calc.ownersCapital))}.`, fix: "The business may be technically insolvent on paper. Re-check liability entries in Step 3, or this loan needs stronger justification before proceeding." });
+
+    if (enterprise.premises === "Owned" && num(h2.rent) > 0)
+      list.push({ tone: "warn", title: "Rent booked despite Owned premises", detail: `Business Premises is marked "Owned" but ${inr(num(h2.rent))} of Rent is booked in Income & Expenditure (Step 3).`, fix: "If the premises is genuinely owned, remove the Rent expense. If rent is actually paid (e.g. for a separate shop), change Business Premises to 'Rented' in Step 2." });
 
     if (calc.cogs > calc.totalSales && calc.totalSales > 0)
       list.push({ tone: "warn", title: "Cost of Goods Sold exceeds Sales", detail: `COGS is ${inr(calc.cogs)} against Sales of ${inr(calc.totalSales)}.`, fix: "Re-check Opening Stock, Purchases, and Closing Stock (Balance Sheet) figures in Step 3 — one of these is likely overstated or understated." });
@@ -1193,7 +1212,7 @@ function App() {
       list.push({ tone: "warn", title: "Working capital request exceeds assessed eligibility", detail: `Requested ${inr(num(wc.wcLoanAmount))} vs the higher of Tandon Method II (${inr(calc.tandonMethod2Mpbf)}) and Turnover Method (${inr(calc.turnoverBankFinance)}).`, fix: "Reduce the working capital loan amount to align with the bank assessment methods shown in Step 3, or provide justification for the higher requirement." });
 
     return list;
-  }, [calc, identity, documents, wc, tl]);
+  }, [calc, identity, documents, wc, tl, enterprise, h2]);
 
   const contextSummary = `Step: ${STEPS[step]}. SHG: ${identity.shgName || "—"}. Enterprise: ${enterprise.enterpriseName || "—"}. Annual sales: ${inr(calc.totalSales)}. Net profit: ${inr(calc.netProfit)}. Loan requested: ${inr(calc.loanReq)}. Max eligible loan: ${inr(calc.maxEligibleLoan)}. DSCR: ${calc.dscr.toFixed(2)}. FOIR: ${pct(calc.foir)}. Recommendation: ${calc.recommendation}. Open issues: ${issues.length}.`;
 
@@ -1323,6 +1342,10 @@ function App() {
 
             <SubHeading>E. Member Credit History with SHG & Banks / एसएचजी व बैंक ऋण इतिहास</SubHeading>
             <FieldGrid fields={CREDIT_HISTORY_FIELDS} obj={credit} setObj={setCredit} />
+            <Field label="Bank Loan Outstanding (auto, from Balance Sheet Short-Term + Term Loan)" auto>
+              <div className="mt-1 px-3 py-2 rounded-md bg-red-50 text-red-700 font-mono text-sm">{inr(calc.bankLoanOutstandingTotal)}</div>
+            </Field>
+            <p className="text-xs text-stone-600 mb-3">Enter the actual outstanding bank loan amounts in the Balance Sheet (Step 3) — this figure updates automatically so it always matches. / तुलन पत्र (चरण 3) में वास्तविक राशि भरें — यह स्वतः मेल खाएगा।</p>
 
             <SubHeading>F1. Project Cost & Funding / परियोजना लागत व वित्तपोषण</SubHeading>
             <Banner tone="warn">
@@ -1382,6 +1405,11 @@ function App() {
                 </div>
               );
             })}
+            {monthsTotal !== 12 && (
+              <Banner tone="danger">
+                Months must add up to 12 — currently {monthsTotal} ({monthsDiff > 0 ? `${monthsDiff} short` : `${Math.abs(monthsDiff)} too many`}). You cannot continue to the next step until this is fixed. / महीनों का योग 12 होना चाहिए।
+              </Banner>
+            )}
             <Card title="H1 Totals (auto)">
               <Row label="Avg Monthly Sale (blended, all periods)" value={inr(calc.avgMonthlySaleTotal)} auto />
               <Row label="Total Sales (12 months)" value={inr(calc.totalSales)} auto />
@@ -1423,7 +1451,7 @@ function App() {
             <SubHeading>H3. Balance Sheet / तुलन पत्र</SubHeading>
             <p className="text-xs font-semibold text-stone-500 mb-1">A. Current Liabilities</p>
             <NumList fields={CL_FIELDS} obj={h3} setObj={setH3} />
-            <p className="text-xs text-red-700 my-2">+ SHG Loan Outstanding {inr(num(credit.shgLoanOutstanding))} + Bank Loan Outstanding {inr(num(credit.bankLoanOutstanding))} + Informal Loan {inr(num(credit.informalLoan))} (all auto from Section E)</p>
+            <p className="text-xs text-red-700 my-2">+ SHG Loan Outstanding {inr(num(credit.shgLoanOutstanding))} + Informal Loan {inr(num(credit.informalLoan))} (auto from Section E). Bank Loan (Short Term + Term Loan) is entered directly here in the Balance Sheet.</p>
 
             <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">B. Long-Term Liabilities</p>
             <NumList fields={LTL_FIELDS} obj={h3} setObj={setH3} />
@@ -1537,8 +1565,15 @@ function App() {
             />
 
             <SubHeading>K2. Household Expenditure / पारिवारिक व्यय (वार्षिक)</SubHeading>
-            <NumList fields={K2_EXPENDITURE_FIELDS} obj={hhExp} setObj={setHhExp} />
-            <p className="text-xs text-stone-600 my-2">+ EMI – SHG Loan (auto) {inr(num(credit.shgEmi) * 12)} · + EMI – Bank Loan (auto) {inr(num(credit.bankLoanEmi) * 12)}</p>
+            <NumList
+              fields={K2_EXPENDITURE_FIELDS}
+              obj={hhExp}
+              setObj={setHhExp}
+              extraRows={[
+                { label: "EMI – SHG Loan (auto, from Section E)", value: inr(num(credit.shgEmi) * 12) },
+                { label: "EMI – Bank Loan (auto, from Section E)", value: inr(num(credit.bankLoanEmi) * 12) },
+              ]}
+            />
 
             <Card title="Household Summary (auto)">
               <Row label="Total Household Income (A)" value={inr(calc.hhIncomeTotalWithBiz)} auto />
@@ -1606,6 +1641,17 @@ function App() {
             <Card title="Suggestion B — Minimum Tenure Required (same loan amount & rate)">
               <Row label="Minimum Tenure Required" value={calc.minTenureMonths ? `${calc.minTenureMonths} months` : "Not achievable at this EMI capacity"} last auto />
             </Card>
+            {calc.recommendation === "Not Recommended" && (
+              calc.minTenureMonths && calc.minTenureMonths <= 60 ? (
+                <Banner tone="warn">
+                  Suggestion: this loan becomes viable if the repayment period is extended to about {calc.minTenureMonths} months (within the 60-month maximum), instead of the current {loanF.tenureMonths} months — this can be edited on Step 2 after review, if needed. / सुझाव: पुनर्भुगतान अवधि लगभग {calc.minTenureMonths} महीने करने पर यह ऋण व्यवहार्य हो सकता है।
+                </Banner>
+              ) : (
+                <Banner tone="danger">
+                  Even extending the repayment period to 60 months (the maximum) would not make this loan viable at the current EMI capacity — the loan amount itself needs to be reduced, or household/business surplus needs to improve. / 60 महीने तक बढ़ाने पर भी यह ऋण व्यवहार्य नहीं होगा — ऋण राशि घटानी होगी।
+                </Banner>
+              )
+            )}
           </section>
         )}
 
@@ -1641,7 +1687,8 @@ function App() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-stone-100 border-t border-stone-300 px-4 py-3 no-print">
         <div className="max-w-md mx-auto">
-          {step < STEPS.length - 1 && missingRequired().length > 0 && (
+          {hardBlockReason() && <p className="text-xs text-red-700 font-semibold mb-2">{hardBlockReason()}</p>}
+          {!hardBlockReason() && step < STEPS.length - 1 && missingRequired().length > 0 && (
             <p className="text-xs text-amber-800 mb-2">Not filled yet / अभी भरा नहीं गया: {missingRequired().join(", ")} — you can still continue and fill these later. / आप बाद में भी भर सकते हैं।</p>
           )}
           <div className="flex gap-3">
@@ -1651,7 +1698,11 @@ function App() {
               </button>
             )}
             {step < STEPS.length - 1 ? (
-              <button onClick={() => setStep(step + 1)} className="flex-1 flex items-center justify-center gap-1 px-4 py-2 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold">
+              <button
+                onClick={() => setStep(step + 1)}
+                disabled={!!hardBlockReason()}
+                className="flex-1 flex items-center justify-center gap-1 px-4 py-2 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold disabled:opacity-40"
+              >
                 Next / आगे <Icon name="chevron_right" size={16} />
               </button>
             ) : (
@@ -1752,6 +1803,9 @@ function Report({ identity, enterprise, credit, loanF, calc }) {
           <li>Your proposed loan of {inr(calc.loanReq)} exceeds repayment capacity of {inr(calc.maxEligibleLoan)}. Consider reducing the loan or increasing own contribution.</li>
         ) : (
           <li>Based on your financial data, the estimated sanctionable amount is {inr(calc.maxEligibleLoan)}.</li>
+        )}
+        {calc.recommendation === "Not Recommended" && calc.minTenureMonths && calc.minTenureMonths <= 60 && (
+          <li>Alternative: extending the repayment period to about {calc.minTenureMonths} months (within the 60-month maximum) would make this loan viable at the current EMI capacity — editable on Step 2 if the applicant agrees.</li>
         )}
         <li>Expected monthly EMI: {inr(calc.calculatedEmi)}.</li>
         <li>FOIR is {pct(calc.foir)} — {calc.foir <= 50 ? "within acceptable banking norms." : "above typical banking comfort levels (50%)."}</li>

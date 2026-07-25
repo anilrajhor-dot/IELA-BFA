@@ -270,7 +270,10 @@ const CREDIT_HISTORY_FIELDS = [
   { k: "ownSbSavings", l: "Savings in Own Bank SB A/c / स्वयं के बचत खाते में जमा", type: "number" }, { k: "fdRd", l: "FD / RD with Bank / बैंक में एफडी / आरडी", type: "number" },
   { k: "otherSavings", l: "Any Other Savings / Investment / कोई अन्य बचत / निवेश", type: "number" },
   { k: "bankLoanOutstanding", l: "Bank Loan Outstanding / बकाया बैंक ऋण", type: "number", help: "Auto-links to Balance Sheet long-term liabilities (Bank Term Loan). / तुलन पत्र की दीर्घकालिक देनदारियों से स्वतः जुड़ा।" },
-  { k: "bankLoanEmi", l: "Bank Loan Monthly EMI / बैंक ऋण मासिक ईएमआई", type: "number" }, { k: "informalLoan", l: "Informal Loan – Family / Friends / अनौपचारिक ऋण – परिवार / मित्र", type: "number" },
+  { k: "bankLoanEmi", l: "Bank Loan Monthly EMI / बैंक ऋण मासिक ईएमआई", type: "number" },
+  { k: "bankLoanInterestRate", l: "Interest Rate on Bank Loan (% p.a.) / बैंक ऋण पर ब्याज दर (% वार्षिक)", type: "number", prefix: "%" },
+  { k: "informalLoan", l: "Informal Loan – Family / Friends / अनौपचारिक ऋण – परिवार / मित्र", type: "number" },
+  { k: "informalLoanEmi", l: "Informal Loan Monthly EMI / अनौपचारिक ऋण मासिक ईएमआई", type: "number" },
   { k: "cibilScore", l: "CIBIL Score (if available) / सिबिल स्कोर (यदि उपलब्ध हो)", type: "text", placeholder: "e.g. NTC" },
 ];
 const F1_FIELDS = [
@@ -282,7 +285,10 @@ const F1_FIELDS = [
 ];
 const F2_FIELDS = [
   { k: "wcPurpose", l: "Purpose of Working Capital Loan / कार्यशील पूंजी ऋण का उद्देश्य", type: "text" }, { k: "wcStockType", l: "Type of Raw Material / Stock / कच्चे माल / स्टॉक का प्रकार", type: "text" },
-  { k: "stockHoldingDays", l: "Stock Holding Period (Days) / स्टॉक धारण अवधि (दिन)", type: "number", prefix: "#" }, { k: "wcCycleDays", l: "Working Capital Cycle (Days) / कार्यशील पूंजी चक्र (दिन)", type: "number", prefix: "#" },
+  { k: "stockHoldingDays", l: "Stock Holding Period (Days) / स्टॉक धारण अवधि (दिन)", type: "number", prefix: "#", help: "Used to auto-calculate Stock value in the Balance Sheet: (Purchases ÷ 365) × these days. Default 60. / तुलन पत्र में स्टॉक मूल्य की स्वतः गणना हेतु उपयोग होता है।" },
+  { k: "debtorsDays", l: "Debtors Holding Period (Days) / देनदार अवधि (दिन)", type: "number", prefix: "#", help: "Used to auto-calculate Debtors in the Balance Sheet: (Sales ÷ 365) × these days. Default 30. / तुलन पत्र में देनदार राशि की स्वतः गणना हेतु उपयोग होता है।" },
+  { k: "suppliersDays", l: "Suppliers' Credit Period (Days) / आपूर्तिकर्ता ऋण अवधि (दिन)", type: "number", prefix: "#", help: "Used to auto-calculate Credit from Suppliers in the Balance Sheet: (Purchases ÷ 365) × these days. Default 7. / तुलन पत्र में आपूर्तिकर्ता उधार की स्वतः गणना हेतु उपयोग होता है।" },
+  { k: "wcCycleDays", l: "Working Capital Cycle (Days) / कार्यशील पूंजी चक्र (दिन)", type: "number", prefix: "#" },
   { k: "totalWcRequired", l: "Total WC Required / आवश्यक कुल कार्यशील पूंजी", type: "number" }, { k: "wcLoanAmount", l: "Working Capital Loan Amount / कार्यशील पूंजी ऋण राशि", type: "number" },
 ];
 const F3_FIELDS = [
@@ -296,20 +302,19 @@ const H2_EXPENDITURE_FIELDS = [
   { k: "wages", l: "Wages & Labour (paid workers) / मजदूरी व श्रम (भुगतान किए गए श्रमिक)" }, { k: "familyLabour", l: "Family Labour (imputed value) / पारिवारिक श्रम (अनुमानित मूल्य)" },
   { k: "rent", l: "Rent of Business Premises / व्यवसाय परिसर का किराया" }, { k: "electricity", l: "Electricity & Fuel / बिजली व ईंधन" }, { k: "maintenance", l: "Maintenance & Repairs / रखरखाव व मरम्मत" },
   { k: "transport", l: "Transport & Delivery Charges / परिवहन व डिलीवरी शुल्क" }, { k: "packing", l: "Packing & Packaging / पैकिंग व पैकेजिंग" }, { k: "commission", l: "Commission to Agents / Middlemen / एजेंट/बिचौलियों को कमीशन" },
-  { k: "interestShgPaid", l: "Interest Paid to SHG on Loan / एसएचजी ऋण पर भुगतान किया गया ब्याज" }, { k: "interestBankPaid", l: "Interest Paid on Bank / Other Loans / बैंक/अन्य ऋण पर भुगतान किया गया ब्याज" },
   { k: "bankCharges", l: "Bank Charges & Other Finance Costs / बैंक शुल्क व अन्य वित्त लागत" }, { k: "gstPaid", l: "GST / Taxes Paid / जीएसटी / भुगतान किया गया कर" }, { k: "depreciation", l: "Depreciation on Assets (estimated) / परिसंपत्तियों पर मूल्यह्रास (अनुमानित)" },
   { k: "otherExp1", l: "Other Expenditure 1 / अन्य व्यय 1" }, { k: "otherExp2", l: "Other Expenditure 2 / अन्य व्यय 2" },
 ];
 const CL_FIELDS = [
-  { k: "clBankLoanST", l: "Other Bank Loan / OD Outstanding – Short Term (if different from Section E) / अन्य बैंक ऋण / ओडी – अल्पकालिक (यदि Section E से भिन्न हो)" }, { k: "clCreditSuppliers", l: "Credit from Suppliers / आपूर्तिकर्ताओं से उधार" },
+  { k: "clBankLoanST", l: "Other Bank Loan / OD Outstanding – Short Term (if different from Section E) / अन्य बैंक ऋण / ओडी – अल्पकालिक (यदि Section E से भिन्न हो)" },
   { k: "clAdvanceReceived", l: "Advance Received from Customers / ग्राहकों से प्राप्त अग्रिम" }, { k: "clGstPayable", l: "GST / Tax Payable / जीएसटी / देय कर" },
   { k: "clOther", l: "Other Current Liabilities / अन्य चालू देनदारियां" },
 ];
 const LTL_FIELDS = [{ k: "ltOther", l: "Other Long-Term Liabilities / अन्य दीर्घकालिक देनदारियां" }];
 const CA_FIELDS = [
   { k: "cashInHand", l: "Cash in Hand / हाथ में नकद" },
-  { k: "advancePaidSuppliers", l: "Advance Paid to Suppliers / आपूर्तिकर्ताओं को दिया गया अग्रिम" }, { k: "debtors", l: "Debtors – Credit Given to Customers / देनदार – ग्राहकों को दिया गया उधार" },
-  { k: "rawMaterialStock", l: "Value of Raw Material Stock / कच्चे माल स्टॉक का मूल्य" }, { k: "finishedGoodsStock", l: "Value of Finished Goods Stock / तैयार माल स्टॉक का मूल्य" }, { k: "otherCA", l: "Other Current Assets / अन्य चालू परिसंपत्तियां" },
+  { k: "advancePaidSuppliers", l: "Advance Paid to Suppliers / आपूर्तिकर्ताओं को दिया गया अग्रिम" },
+  { k: "otherCA", l: "Other Current Assets / अन्य चालू परिसंपत्तियां" },
 ];
 const FA_FIELDS = [
   { k: "landBuilding", l: "Land & Building / भूमि व भवन" }, { k: "plantMachinery", l: "Plant & Machinery / संयंत्र व मशीनरी" }, { k: "toolsEquipment", l: "Tools & Small Equipment / औजार व छोटे उपकरण" },
@@ -378,11 +383,14 @@ const CHAT_KB = [
   { k: ["aadhaar", "pan card", "kyc", "why do i need"], a: "Aadhaar, PAN, and the other KYC documents confirm the applicant's identity and are required by the bank before it can sanction any loan. If a document isn't ready yet, mark it 'Pending' in the Documents Checklist (Step 1) — you can still continue filling the rest of the form. / आधार, पैन और अन्य केवाईसी दस्तावेज़ आवेदक की पहचान की पुष्टि करते हैं और ऋण स्वीकृति से पहले बैंक के लिए आवश्यक हैं। यदि कोई दस्तावेज़ तैयार नहीं है, तो दस्तावेज़ सूची (चरण 1) में उसे 'लंबित' चिह्नित करें — आप बाकी फॉर्म भरना जारी रख सकते हैं।" },
   { k: ["red", "auto", "why is some text"], a: "Any field or value shown in red is calculated automatically from other entries — you don't need to type those yourself. For example, Avg Monthly Sale turns red once you enter Daily Sale, because it's computed from it. / लाल रंग में दिखाया गया कोई भी फ़ील्ड या मूल्य अन्य प्रविष्टियों से स्वतः गणना होता है — आपको इसे स्वयं भरने की आवश्यकता नहीं। उदाहरण के लिए, दैनिक बिक्री भरते ही औसत मासिक बिक्री लाल हो जाती है क्योंकि वह उससे गणना होती है।" },
   { k: ["working capital", "term loan", "wc vs", "difference between"], a: "Working Capital covers day-to-day running costs (stock, raw material) that get recovered as you sell — it's short-term and revolving. A Term Loan funds a one-time purchase like machinery or a shop asset, repaid over a fixed period. Fill F2 for Working Capital details and F3 for Term Loan details. / कार्यशील पूंजी दैनिक खर्चों (स्टॉक, कच्चा माल) को कवर करती है जो बिक्री से वसूल होते हैं — यह अल्पकालिक व घूर्णनशील है। टर्म लोन मशीनरी जैसी एकबारगी खरीद के लिए होता है, निश्चित अवधि में चुकाया जाता है। कार्यशील पूंजी के लिए F2 और टर्म लोन के लिए F3 भरें।" },
-  { k: ["margin money", "margin", "10%"], a: "Margin Money is the portion of the project cost the applicant/SHG contributes themselves — usually a minimum of 10%. Loan Amount = Total Project Cost − Margin Money. The app auto-suggests both once you enter the material/asset cost in F2/F3. / मार्जिन मनी परियोजना लागत का वह हिस्सा है जो आवेदक/एसएचजी स्वयं देते हैं — आमतौर पर न्यूनतम 10%। ऋण राशि = कुल परियोजना लागत − मार्जिन मनी। F2/F3 में सामग्री/परिसंपत्ति लागत भरते ही दोनों स्वतः सुझाई जाती हैं।" },
+  { k: ["emi on working capital", "why no emi", "emi only on term"], a: "EMI is calculated only on the Term Loan, because Working Capital is a revolving facility (like an overdraft) with no fixed monthly installment — it's assessed separately using the Tandon Committee and Turnover methods in Step 3, not DSCR/FOIR. / ईएमआई केवल टर्म लोन पर गणना होती है; कार्यशील पूंजी की अलग से टंडन/टर्नओवर पद्धति से जांच होती है।" },
+  { k: ["margin money", "margin", "10%"], a: "Margin Money is the portion each loan's cost the applicant/SHG contributes themselves — usually a minimum of 10%. Enter Working Capital Required (F2) and Asset Cost (F3); the app auto-suggests each loan amount at 90% of its cost. Total Project Cost, Total Loan Requested, and Margin Money are then calculated automatically from these two, shown in the summary after F3. / मार्जिन मनी प्रत्येक ऋण की लागत का वह हिस्सा है जो आवेदक स्वयं देते हैं — आमतौर पर न्यूनतम 10%। F2 व F3 भरने पर कुल परियोजना लागत व ऋण राशि स्वतः गणना होती है।"},
   { k: ["material cost", "loan amount same", "quoted price"], a: "The Loan Amount should never equal the full cost of material or the asset being purchased — margin money has to come from the applicant. If you see a warning about this in Checks, it means the requested loan looks too close to the full cost. / ऋण राशि कभी भी सामग्री या परिसंपत्ति की पूरी लागत के बराबर नहीं होनी चाहिए — मार्जिन मनी आवेदक से आनी चाहिए। यदि Checks में इसकी चेतावनी दिखे, तो अनुरोधित ऋण पूरी लागत के बहुत करीब है।" },
   { k: ["balance sheet", "tally", "owner's capital", "owners capital"], a: "Owner's Capital = Total Assets − Total Liabilities other than capital. Because of this formula, the balance sheet always tallies by construction — Owner's Capital is the balancing figure. If it comes out negative, that's a real warning sign (liabilities exceed assets), which shows up in Checks. / स्वामी की पूंजी = कुल परिसंपत्ति − पूंजी के अलावा कुल देनदारियां। इस सूत्र के कारण तुलन पत्र हमेशा मेल खाता है — स्वामी की पूंजी संतुलन आंकड़ा है। यदि यह ऋणात्मक आए, तो यह वास्तविक चेतावनी है (देनदारियां परिसंपत्तियों से अधिक), जो Checks में दिखती है।" },
   { k: ["family labour", "family labor"], a: "Family Labour is the imputed value of unpaid work done by family members in the business — even though no wage is actually paid, it's still a real cost of running the business and should be estimated and included. / पारिवारिक श्रम, व्यवसाय में परिवार के सदस्यों द्वारा बिना वेतन किए गए कार्य का अनुमानित मूल्य है — भले ही कोई वेतन न दिया जाए, यह व्यवसाय चलाने की वास्तविक लागत है और इसे शामिल किया जाना चाहिए।" },
-  { k: ["opening stock", "closing stock", "cogs", "cost of goods sold"], a: "Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. Opening Stock is what you had at the start of the year (enter it in Step 3); Closing Stock is auto-linked from the Balance Sheet's Raw Material + Finished Goods Stock, so you don't enter it twice. This gives a more accurate Gross Profit than just Sales − Purchases. / बेची गई वस्तुओं की लागत (COGS) = प्रारंभिक स्टॉक + खरीद − अंतिम स्टॉक। प्रारंभिक स्टॉक वर्ष की शुरुआत में था (चरण 3 में भरें); अंतिम स्टॉक तुलन पत्र के कच्चे माल + तैयार माल स्टॉक से स्वतः जुड़ा है, इसे दोबारा न भरें। इससे सकल लाभ अधिक सटीक होता है।" },
+  { k: ["opening stock", "closing stock", "cogs", "cost of goods sold"], a: "Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. Opening Stock is what you had at the start of the year (enter it in Step 3); Closing Stock is now auto-calculated from the Stock Holding Period set in Step 2 (F2), so you don't enter it manually. This gives a more accurate Gross Profit than just Sales − Purchases. / बेची गई वस्तुओं की लागत (COGS) = प्रारंभिक स्टॉक + खरीद − अंतिम स्टॉक। अंतिम स्टॉक अब स्टॉक धारण अवधि से स्वतः गणना होता है।" },
+  { k: ["holding period", "stock holding", "debtors period", "suppliers credit period", "60 days", "30 days"], a: "Stock, Debtors, and Credit from Suppliers in the Balance Sheet are auto-calculated using standard holding-period assumptions set in Step 2 (F2): value = (annual Sales or Purchases ÷ 365) × holding days. Defaults are Stock 60 days, Debtors 30 days, Suppliers' Credit 7 days — adjust these in F2 if the business's actual cycle differs. / तुलन पत्र में स्टॉक, देनदार व आपूर्तिकर्ता उधार, F2 में निर्धारित मानक अवधि (स्टॉक 60, देनदार 30, आपूर्तिकर्ता 7 दिन) से स्वतः गणना होते हैं।" },
+  { k: ["interest on loan", "interest paid", "interest expense", "interest charged"], a: "Interest on SHG and Bank loan outstanding auto-calculates in the P&L (Step 3, H2): Interest = Loan Outstanding × Interest Rate (both from Section E). This is only an estimate (it assumes the outstanding balance stayed flat all year) — if you have the actual interest figure from the loan passbook, enter it in the override field and it'll be used instead. / एसएचजी व बैंक ऋण पर ब्याज स्वतः गणना होता है; यदि पासबुक में वास्तविक आंकड़ा उपलब्ध हो तो उसे override फ़ील्ड में भरें।" },
   { k: ["daily sale", "monthly sale"], a: "Fill either one — whichever is easier for you. If you enter Daily Sale, Avg Monthly Sale is calculated automatically (shown in red). If Daily Sale is left blank, a direct Avg Monthly Sale field appears for you to fill instead. / जो भी आपके लिए आसान हो वह भरें। दैनिक बिक्री भरने पर औसत मासिक बिक्री स्वतः गणना होती है (लाल रंग में)। दैनिक बिक्री खाली छोड़ने पर सीधे औसत मासिक बिक्री भरने का विकल्प आता है।" },
   { k: ["growth", "projection", "growth rate"], a: "The growth % you enter for Year 2 and Year 3 projects how much Sales and Operating Expenditure might increase. A realistic rate is usually 10-20% for a stable small business — very high rates (40%+) make the projection unreliable, so keep it conservative unless there's a clear reason (like a big new loan-funded expansion) to expect faster growth. / वर्ष 2 व 3 के लिए भरी गई वृद्धि % यह दर्शाती है कि बिक्री व परिचालन व्यय कितना बढ़ सकता है। एक स्थिर छोटे व्यवसाय के लिए 10-20% यथार्थवादी है — बहुत अधिक दर (40%+) अनुमान को अविश्वसनीय बनाती है, इसलिए स्पष्ट कारण न हो तो सतर्क रहें।" },
   { k: ["household expense", "hh expense"], a: "Include housing/utilities, food & groceries, transport, education, medical, and social/festival expenses. Don't include business expenses here — those belong in the Financials step. / आवास/उपयोगिताएं, भोजन व किराना, परिवहन, शिक्षा, चिकित्सा व सामाजिक/त्योहार व्यय शामिल करें। यहां व्यावसायिक खर्च शामिल न करें — वे वित्तीय चरण में आते हैं।" },
@@ -630,10 +638,12 @@ function App() {
   const [enterprise, setEnterprise] = useState(Object.fromEntries(ENTERPRISE_FIELDS.map((f) => [f.k, ""])));
   const [credit, setCredit] = useState(Object.fromEntries(CREDIT_HISTORY_FIELDS.map((f) => [f.k, ""])));
   const [loanF, setLoanF] = useState({
-    totalProjectCost: "", marginMoney: "", loanRequested: "",
     ...Object.fromEntries(F1_FIELDS.map((f) => [f.k, f.k === "tenureMonths" ? 36 : f.k === "interestRate" ? 12 : ""])),
   });
-  const [wc, setWc] = useState(Object.fromEntries(F2_FIELDS.map((f) => [f.k, ""])));
+  const [wc, setWc] = useState({
+    ...Object.fromEntries(F2_FIELDS.map((f) => [f.k, ""])),
+    stockHoldingDays: 60, debtorsDays: 30, suppliersDays: 7,
+  });
   const [tl, setTl] = useState(Object.fromEntries(F3_FIELDS.map((f) => [f.k, ""])));
 
   const [h1, setH1] = useState({
@@ -641,7 +651,7 @@ function App() {
     low: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
     avg: { months: 6, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
   });
-  const [h2, setH2] = useState(Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])));
+  const [h2, setH2] = useState({ ...Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])), interestShgOverride: "", interestBankOverride: "" });
   const [govtSubsidy, setGovtSubsidy] = useState("");
   const [openingStock, setOpeningStock] = useState("");
   const [h3, setH3] = useState(
@@ -665,31 +675,19 @@ function App() {
     }
   }, [identity.district, identity.state]);
 
-  // Total Project Cost = cost of material/asset actually needed (Quoted Price + WC Required) — NOT the loan amount itself.
-  useEffect(() => {
-    const materialCost = num(tl.quotedPrice) + num(wc.totalWcRequired);
-    if (materialCost > 0 && loanF.totalProjectCost === "") {
-      setLoanF((l) => (l.totalProjectCost !== "" ? l : { ...l, totalProjectCost: Math.round(materialCost) }));
-    }
-  }, [tl.quotedPrice, wc.totalWcRequired]);
-
-  useEffect(() => {
-    if (loanF.totalProjectCost !== "" && loanF.marginMoney === "") {
-      setLoanF((l) => (l.marginMoney !== "" ? l : { ...l, marginMoney: Math.round(num(l.totalProjectCost) * 0.1) }));
-    }
-  }, [loanF.totalProjectCost]);
-
-  useEffect(() => {
-    if (loanF.totalProjectCost !== "" && loanF.marginMoney !== "" && loanF.loanRequested === "") {
-      setLoanF((l) => (l.loanRequested !== "" ? l : { ...l, loanRequested: Math.max(Math.round(num(l.totalProjectCost) - num(l.marginMoney)), 0) }));
-    }
-  }, [loanF.totalProjectCost, loanF.marginMoney]);
-
+  // Each sub-loan auto-suggests its own amount at 90% of its cost (10% margin) — Total Project Cost and Total Loan
+  // Requested are now derived automatically from these two, not entered separately (see calc below).
   useEffect(() => {
     if (tl.quotedPrice !== "" && tl.tlAmount === "") {
       setTl((t) => (t.tlAmount !== "" ? t : { ...t, tlAmount: Math.round(num(t.quotedPrice) * 0.9) }));
     }
   }, [tl.quotedPrice]);
+
+  useEffect(() => {
+    if (wc.totalWcRequired !== "" && wc.wcLoanAmount === "") {
+      setWc((w) => (w.wcLoanAmount !== "" ? w : { ...w, wcLoanAmount: Math.round(num(w.totalWcRequired) * 0.9) }));
+    }
+  }, [wc.totalWcRequired]);
 
   // ---------------- calculations ----------------
   const calc = useMemo(() => {
@@ -711,22 +709,35 @@ function App() {
     const blendedMargin = totalSales ? ((totalSales - totalPurchases) / totalSales) * 100 : 0;
 
     // H2 income & expenditure
-    const expenditureSum = sum(...Object.values(h2));
+    // Interest on loan outstanding auto-calculates (Outstanding × Rate) but can be overridden with the actual passbook figure.
+    const interestShgAuto = num(credit.shgLoanOutstanding) * (num(credit.shgInterestRate) / 100);
+    const interestBankAuto = num(credit.bankLoanOutstanding) * (num(credit.bankLoanInterestRate) / 100);
+    const interestShgFinal = h2.interestShgOverride !== "" ? num(h2.interestShgOverride) : interestShgAuto;
+    const interestBankFinal = h2.interestBankOverride !== "" ? num(h2.interestBankOverride) : interestBankAuto;
+    const expenditureSum = sum(...H2_EXPENDITURE_FIELDS.map((f) => h2[f.k])) + interestShgFinal + interestBankFinal;
     const totalExpenditure = totalPurchases + expenditureSum;
     const totalIncome = totalSales + totalOtherIncome + num(govtSubsidy);
     const netProfit = totalIncome - totalExpenditure;
     const netMargin = totalSales ? (netProfit / totalSales) * 100 : 0;
-    // Closing Stock is auto-linked from the Balance Sheet's stock values (Step 3, H3) — no need to enter it twice.
-    const closingStock = num(h3.rawMaterialStock) + num(h3.finishedGoodsStock);
+
+    // Holding-period-based auto-calculation (standard operating-cycle method): value = (annual flow ÷ 365) × holding days.
+    const dailyPurchases = totalPurchases / 365;
+    const dailySales = totalSales / 365;
+    const stockValueAuto = dailyPurchases * num(wc.stockHoldingDays);
+    const debtorsAuto = dailySales * num(wc.debtorsDays);
+    const creditorsAuto = dailyPurchases * num(wc.suppliersDays);
+
+    // Closing Stock is auto-calculated from the Stock Holding Period (Step 2, F2) — no need to enter it twice.
+    const closingStock = stockValueAuto;
     const cogs = num(openingStock) + totalPurchases - closingStock;
     const grossProfit = totalSales - cogs;
     const grossMargin = totalSales ? (grossProfit / totalSales) * 100 : 0;
     const avgMonthlyNetProfit = netProfit / 12;
 
     // H3 balance sheet
-    const totalCL = sum(num(credit.shgLoanOutstanding), num(credit.informalLoan), ...CL_FIELDS.map((f) => h3[f.k]));
+    const totalCL = sum(num(credit.shgLoanOutstanding), num(credit.informalLoan), creditorsAuto, ...CL_FIELDS.map((f) => h3[f.k]));
     const totalLTL = sum(num(credit.bankLoanOutstanding), ...LTL_FIELDS.map((f) => h3[f.k]));
-    const totalCA = sum(num(credit.cumulativeShgSavings), num(credit.ownSbSavings), num(credit.fdRd), num(credit.otherSavings), ...CA_FIELDS.map((f) => h3[f.k]));
+    const totalCA = sum(num(credit.cumulativeShgSavings), num(credit.ownSbSavings), num(credit.fdRd), num(credit.otherSavings), stockValueAuto, debtorsAuto, ...CA_FIELDS.map((f) => h3[f.k]));
     const totalFA = sum(...FA_FIELDS.map((f) => h3[f.k]));
     const totalOA = sum(...OA_FIELDS.map((f) => h3[f.k]));
     const totalAssets = totalCA + totalFA + totalOA;
@@ -737,7 +748,9 @@ function App() {
     const balances = Math.round(totalAssets) === Math.round(totalLiabilities); // true by construction — capital is the plug
 
     // Working Capital Assessment — Tandon Committee method (Method I & II) + Turnover method (Nayak Committee)
-    const clBankBorrowings = num(h3.clBankLoanST) + num(credit.shgLoanOutstanding) + num(credit.bankLoanOutstanding);
+    // Bank Loan Outstanding (credit.bankLoanOutstanding) is a long-term liability (part of totalLTL), not a current
+    // liability — only clBankLoanST (short-term/OD) and the SHG loan belong in the current-liabilities exclusion.
+    const clBankBorrowings = num(h3.clBankLoanST) + num(credit.shgLoanOutstanding);
     const clOtherThanBankBorrowings = totalCL - clBankBorrowings;
     const workingCapitalGap = totalCA - clOtherThanBankBorrowings;
     const tandonMethod1Mpbf = Math.max(workingCapitalGap, 0) * 0.75;
@@ -767,37 +780,46 @@ function App() {
     const hhIncomeTotal = sum(...K2_INCOME_FIELDS.map((f) => hhInc[f.k]));
     const businessProfitLinked = Math.max(avgMonthlyNetProfit * 12, 0);
     const hhIncomeTotalWithBiz = hhIncomeTotal + businessProfitLinked;
-    const hhExpTotal = sum(...K2_EXPENDITURE_FIELDS.map((f) => hhExp[f.k])) + num(credit.shgEmi) * 12 + num(credit.bankLoanEmi) * 12;
+    const hhExpTotal = sum(...K2_EXPENDITURE_FIELDS.map((f) => hhExp[f.k])) + num(credit.shgEmi) * 12 + num(credit.bankLoanEmi) * 12 + num(credit.informalLoanEmi) * 12;
     const householdSurplusAnnual = hhIncomeTotalWithBiz - hhExpTotal;
     const monthlyHHIncome = hhIncomeTotalWithBiz / 12;
     const monthlyHHExpenditure = hhExpTotal / 12;
     const monthlyHouseholdSurplus = householdSurplusAnnual / 12;
 
+    // Total Project Cost & Total Loan Requested — derived from Working Capital + Term Loan, not entered separately.
+    const tlAmount = num(tl.tlAmount);
+    const wcLoanAmount = num(wc.wcLoanAmount);
+    const totalProjectCost = num(tl.quotedPrice) + num(wc.totalWcRequired);
+    const totalLoanRequested = tlAmount + wcLoanAmount;
+    const marginMoneyDerived = totalProjectCost - totalLoanRequested;
+
     // K3 EMI schedule
-    const totalMonthlyEmi = num(credit.shgEmi) + num(credit.bankLoanEmi) + num(loanF.proposedEmi);
+    const totalMonthlyEmi = num(credit.shgEmi) + num(credit.bankLoanEmi) + num(credit.informalLoanEmi) + num(loanF.proposedEmi);
     const netCashSurplusAfterAllEmis = monthlyHouseholdSurplus - num(loanF.proposedEmi);
 
-    // EMI Feasibility (Sheet 6)
+    // EMI Feasibility (Sheet 6) — EMI applies only to the Term Loan portion; Working Capital is assessed separately via Tandon/Turnover methods above.
     const emiMonthlyHHIncome = emiL1.monthlyHHIncomeOverride !== "" ? num(emiL1.monthlyHHIncomeOverride) : monthlyHHIncome;
-    const emiMonthlyHHExpenditureExclEmi = monthlyHHExpenditure - num(credit.shgEmi) - num(credit.bankLoanEmi);
+    const emiMonthlyHHExpenditureExclEmi = monthlyHHExpenditure - num(credit.shgEmi) - num(credit.bankLoanEmi) - num(credit.informalLoanEmi);
     const emiMonthlyHHExpenditure = emiL1.monthlyHHExpenditureOverride !== "" ? num(emiL1.monthlyHHExpenditureOverride) : emiMonthlyHHExpenditureExclEmi;
     const existingEmiBank = emiL1.existingEmiBankOverride !== "" ? num(emiL1.existingEmiBankOverride) : num(credit.bankLoanEmi);
     const existingEmiShg = num(credit.shgEmi);
-    const totalExistingEmi = existingEmiShg + existingEmiBank;
+    const existingEmiInformal = num(credit.informalLoanEmi);
+    const totalExistingEmi = existingEmiShg + existingEmiBank + existingEmiInformal;
 
-    const calculatedEmi = pmt(loanF.loanRequested, loanF.interestRate, loanF.tenureMonths);
+    const calculatedEmi = pmt(tlAmount, loanF.interestRate, loanF.tenureMonths);
     const surplusBeforeNewEmi = emiMonthlyHHIncome - emiMonthlyHHExpenditure - totalExistingEmi;
     const surplusAfterNewEmi = surplusBeforeNewEmi - calculatedEmi;
     const safeEmiCapacity = Math.max(surplusBeforeNewEmi, 0) * 0.5;
     const maxEligibleLoan = maxLoanFromEmi(safeEmiCapacity, loanF.interestRate, loanF.tenureMonths);
-    const minTenureMonths = minTenure(loanF.loanRequested, loanF.interestRate, safeEmiCapacity);
+    const minTenureMonths = minTenure(tlAmount, loanF.interestRate, safeEmiCapacity);
 
     const foir = emiMonthlyHHIncome ? ((totalExistingEmi + calculatedEmi) / emiMonthlyHHIncome) * 100 : 0;
     const dscr = (totalExistingEmi + calculatedEmi) ? (surplusBeforeNewEmi + calculatedEmi + totalExistingEmi) / (totalExistingEmi + calculatedEmi) : 0;
 
+    // Recommendation is based on the Term Loan (EMI-based) portion specifically.
     let recommendation = "Not Recommended";
     let tone = "danger";
-    const loanReq = num(loanF.loanRequested);
+    const loanReq = tlAmount;
     if (loanReq > 0 && loanReq <= maxEligibleLoan) { recommendation = "Recommend"; tone = "ok"; }
     else if (loanReq <= maxEligibleLoan * 1.1) { recommendation = "Recommend with Conditions"; tone = "warn"; }
 
@@ -807,13 +829,14 @@ function App() {
       totalCL, totalLTL, totalCA, totalFA, totalOA, totalAssets, ownersCapital, totalNetWorth, totalLiabilities, balances,
       clOtherThanBankBorrowings, workingCapitalGap, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
       projectedTurnover, turnoverWcRequirement, turnoverMargin, turnoverBankFinance,
+      tlAmount, wcLoanAmount, totalProjectCost, totalLoanRequested, marginMoneyDerived, stockValueAuto, debtorsAuto, creditorsAuto, interestShgAuto, interestBankAuto, interestShgFinal, interestBankFinal,
       salesY2, salesY3, opexY2, opexY3, purchasesY2, purchasesY3, netProfitY1, netProfitY2, netProfitY3, annualEmi,
       hhIncomeTotalWithBiz, hhExpTotal, householdSurplusAnnual, monthlyHHIncome, monthlyHHExpenditure, monthlyHouseholdSurplus,
       totalMonthlyEmi, netCashSurplusAfterAllEmis,
       calculatedEmi, surplusBeforeNewEmi, surplusAfterNewEmi, safeEmiCapacity, maxEligibleLoan, minTenureMonths,
-      foir, dscr, recommendation, tone, loanReq, totalExistingEmi, existingEmiShg, existingEmiBank, emiMonthlyHHExpenditureExclEmi,
+      foir, dscr, recommendation, tone, loanReq, totalExistingEmi, existingEmiShg, existingEmiBank, existingEmiInformal, emiMonthlyHHExpenditureExclEmi,
     };
-  }, [h1, h2, govtSubsidy, openingStock, h3, drawings, credit, proj, loanF, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
+  }, [h1, h2, govtSubsidy, openingStock, h3, drawings, credit, proj, loanF, tl, wc, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
 
   // Auto-suggest the proposed EMI from the PMT calculation once loan terms are entered (still overridable)
   useEffect(() => {
@@ -857,9 +880,9 @@ function App() {
       `Annual Sales: ${inr(calc.totalSales)}`,
       `Net Profit: ${inr(calc.netProfit)}`,
       `Owner's Capital: ${inr(calc.ownersCapital)}`,
-      `Total Project Cost: ${inr(num(loanF.totalProjectCost))}  Margin: ${inr(num(loanF.marginMoney))}`,
-      `Loan Requested: ${inr(calc.loanReq)}`,
-      `Max Eligible Loan: ${inr(calc.maxEligibleLoan)}`,
+      `Total Project Cost: ${inr(calc.totalProjectCost)}  Margin: ${inr(calc.marginMoneyDerived)}`,
+      `Working Capital Loan: ${inr(calc.wcLoanAmount)}   Term Loan: ${inr(calc.tlAmount)}   Total: ${inr(calc.totalLoanRequested)}`,
+      `Max Eligible Term Loan (EMI-based): ${inr(calc.maxEligibleLoan)}`,
       `DSCR: ${calc.dscr.toFixed(2)}   FOIR: ${pct(calc.foir)}`,
       `Recommendation: ${calc.recommendation}`,
     ].join("\n");
@@ -955,10 +978,11 @@ function App() {
       shgName: identity.shgName,
       memberName: identity.memberName,
       enterpriseName: enterprise.enterpriseName,
-      loanReq: calc.loanReq,
+      loanReq: calc.tlAmount,
+      totalLoanRequested: calc.totalLoanRequested,
       maxEligibleLoan: calc.maxEligibleLoan,
-      totalProjectCost: num(loanF.totalProjectCost),
-      marginMoney: num(loanF.marginMoney),
+      totalProjectCost: calc.totalProjectCost,
+      marginMoney: calc.marginMoneyDerived,
       netProfit: calc.netProfit,
       ownersCapital: calc.ownersCapital,
       dscr: calc.dscr,
@@ -976,22 +1000,37 @@ function App() {
 
   function loadSampleData() {
     setIdentity((i) => ({
-      ...i, shgName: "Jai Bhavani SHG", memberName: "Sunita Devi", fatherHusband: "Ramesh Devi",
+      ...i, block: "Selu", gp: "Ambika", village: "Wardha Rural", shgName: "Jai Bhavani SHG",
       district: "Wardha", state: "Maharashtra", bankName: "Bank of Maharashtra", branchName: "Wardha Main",
-      pan: "ABCDE1234F", mobile: "98765 43210", vittaSakhi: "Meena Tai",
+      ifsc: "MAHB0001234", sbAccount: "60123456789",
+      memberName: "Sunita Devi", fatherHusband: "Ramesh Devi", memberId: "WRD-SHG-0456", dob: "1988-05-14",
+      pan: "ABCDE1234F", mobile: "98765 43210", udyam: "UDYAM-MH-03-0012345", gst: "",
+      memberBankName: "Bank of Maharashtra", memberBranchName: "Wardha Main", memberIfsc: "MAHB0001234", memberSbAccount: "60198765432",
+      vittaSakhi: "Meena Tai", dateOfVisit: "2026-01-15",
     }));
+    setDocuments((d) => Object.fromEntries(Object.keys(d).map((k) => [k, { status: "Collected", remarks: "" }])));
     setEnterprise((e) => ({
-      ...e, enterpriseName: "Sunita General Store", enterpriseType: "Trading", activityType: "Grocery retail",
-      currentActivity: "Grocery & household goods retail", experience: 5, employees: 1, recordsAvailable: "Yes", recordsType: "Notebook ledger",
-      premises: "Rented", monthlyRent: 1200,
+      ...e, enterpriseName: "Sunita General Store", enterpriseType: "Trading", activityType: "Grocery & FMCG retail",
+      startDate: "2019-06-01", currentActivity: "Grocery & household goods retail", plannedActivity: "Add cold storage for dairy & beverages",
+      businessAddress: "Shop No. 4, Main Bazar Road, Selu", districtState: "Wardha, Maharashtra",
+      premises: "Rented", monthlyRent: 1200, experience: 6, employees: 1, recordsAvailable: "Yes", recordsType: "Notebook ledger + mobile app",
     }));
     setCredit((c) => ({
       ...c, memberSince: 6, loansLast3Yrs: 3, lastLoanAmount: 15000, highestLoanEver: 20000,
-      shgLoanOutstanding: 18000, shgEmi: 1500, shgInterestRate: 12, cumulativeShgSavings: 22000,
-      ownSbSavings: 8500, fdRd: 5000, bankLoanOutstanding: 150000, bankLoanEmi: 0, informalLoan: 10000,
+      shgLoanOutstanding: 18000, shgEmi: 1500, shgInterestRate: 12, emiDelays: 0, cumulativeShgSavings: 22000,
+      ownSbSavings: 8500, fdRd: 5000, otherSavings: 2000,
+      bankLoanOutstanding: 150000, bankLoanEmi: 4200, bankLoanInterestRate: 11,
+      informalLoan: 10000, informalLoanEmi: 800, cibilScore: "NTC",
     }));
-    setTl((t) => ({ ...t, tlPurpose: "Shop refrigerator & shelving", assetDescription: "Refrigerator + display shelving", newOrReplacement: "New Purchase", assetLife: 8, quotedPrice: 150000 }));
-    setWc((w) => ({ ...w, wcPurpose: "Stock purchase", totalWcRequired: 30000 }));
+    setWc((w) => ({
+      ...w, wcPurpose: "Stock purchase for festive season", wcStockType: "Grocery / FMCG packaged goods",
+      wcCycleDays: 90, totalWcRequired: 30000,
+    }));
+    setTl((t) => ({
+      ...t, tlPurpose: "Purchase of refrigerator & display shelving", assetDescription: "Double-door refrigerator + display shelving unit",
+      newOrReplacement: "New Purchase", assetLife: 8, supplierName: "Kelvin Appliances, Wardha", quotedPrice: 150000,
+    }));
+    setLoanF((l) => ({ ...l, marginSource: "Bank Savings Account", tenureMonths: 36, interestRate: 12 }));
     setH1({
       high: { months: 3, dailySale: 1800, avgMonthlySaleManual: "", margin: 28, otherInc: 500 },
       low: { months: 3, dailySale: 900, avgMonthlySaleManual: "", margin: 22, otherInc: 200 },
@@ -999,18 +1038,19 @@ function App() {
     });
     setH2((h) => ({
       ...h, wages: 18000, familyLabour: 12000, rent: 14400, electricity: 6000, maintenance: 3600,
-      transport: 8400, packing: 4200, interestShgPaid: 3240, bankCharges: 600, depreciation: 4500, otherExp1: 2400,
+      transport: 8400, packing: 4200, commission: 0, bankCharges: 600, gstPaid: 0, depreciation: 4500, otherExp1: 2400, otherExp2: 0,
     }));
     setGovtSubsidy(6000);
     setOpeningStock(24000);
     setH3((h) => ({
-      ...h, clCreditSuppliers: 8000,
-      cashInHand: 3500, debtors: 4200, rawMaterialStock: 18000, finishedGoodsStock: 12000,
-      plantMachinery: 150000, toolsEquipment: 6000, furniture: 6000, securityDeposits: 5000,
+      ...h, clBankLoanST: 0, clAdvanceReceived: 0, clGstPayable: 0, clOther: 0, ltOther: 0,
+      cashInHand: 3500, advancePaidSuppliers: 0, otherCA: 0,
+      landBuilding: 0, plantMachinery: 150000, toolsEquipment: 6000, furniture: 6000, vehicle: 0, otherFA: 0,
+      securityDeposits: 5000, otherAssets: 0,
     }));
     setDrawings(6000);
-    setK1((k) => ({ ...k, totalMembers: 5, earningMembers: 2, existingHhLoan: "No", houseType: "Semi-Pucca", bplApl: "APL" }));
-    setHhInc((h) => ({ ...h, wagesSalary: 60000, farmingIncome: 24000, govtTransfers: 12000, otherIncome1: 6000 }));
+    setK1((k) => ({ ...k, totalMembers: 5, earningMembers: 2, existingHhLoan: "No", hhLoanDetail: "", houseType: "Semi-Pucca", bplApl: "APL" }));
+    setHhInc((h) => ({ ...h, wagesSalary: 60000, farmingIncome: 24000, livestockIncome: 0, rentalIncome: 0, govtTransfers: 12000, remittances: 0, otherIncome1: 6000, otherIncome2: 0 }));
     setHhExp((h) => ({ ...h, housing: 42000, food: 60000, transport: 9600, education: 14400, medical: 7200, social: 6000, otherExpenses: 4800 }));
   }
 
@@ -1094,14 +1134,14 @@ function App() {
       totalProjectCost: "", marginMoney: "", loanRequested: "",
       ...Object.fromEntries(F1_FIELDS.map((f) => [f.k, f.k === "tenureMonths" ? 36 : f.k === "interestRate" ? 12 : ""])),
     });
-    setWc(Object.fromEntries(F2_FIELDS.map((f) => [f.k, ""])));
+    setWc({ ...Object.fromEntries(F2_FIELDS.map((f) => [f.k, ""])), stockHoldingDays: 60, debtorsDays: 30, suppliersDays: 7 });
     setTl(Object.fromEntries(F3_FIELDS.map((f) => [f.k, ""])));
     setH1({
       high: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
       low: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
       avg: { months: 6, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
     });
-    setH2(Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])));
+    setH2({ ...Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])), interestShgOverride: "", interestBankOverride: "" });
     setGovtSubsidy("");
     setOpeningStock("");
     setH3(Object.fromEntries([...CL_FIELDS, ...LTL_FIELDS, ...CA_FIELDS, ...FA_FIELDS, ...OA_FIELDS].map((f) => [f.k, ""])));
@@ -1150,7 +1190,7 @@ function App() {
 
   const missingRequired = () => {
     if (step === 0) return [!identity.shgName && "Name of SHG", !identity.memberName && "Member Name"].filter(Boolean);
-    if (step === 1) return [!enterprise.enterpriseName && "Enterprise Name", loanF.loanRequested === "" && "Loan Amount Requested"].filter(Boolean);
+    if (step === 1) return [!enterprise.enterpriseName && "Enterprise Name", tl.tlAmount === "" && wc.wcLoanAmount === "" && "Working Capital or Term Loan Amount"].filter(Boolean);
     return [];
   };
 
@@ -1199,24 +1239,26 @@ function App() {
     if (calc.foir > 50)
       list.push({ tone: "warn", title: "FOIR above the 50% banking norm", detail: `Current FOIR is ${pct(calc.foir)}.`, fix: "Reduce the loan amount or extend tenure to bring EMI obligations below 50% of income." });
 
-    if (calc.loanReq > calc.maxEligibleLoan && calc.maxEligibleLoan > 0)
-      list.push({ tone: "danger", title: "Requested loan exceeds eligibility", detail: `Requested ${inr(calc.loanReq)} vs eligible ${inr(calc.maxEligibleLoan)}.`, fix: `Reduce the loan to ${inr(calc.maxEligibleLoan)}, or increase own contribution by ${inr(calc.loanReq - calc.maxEligibleLoan)}.` });
+    if (calc.tlAmount > calc.maxEligibleLoan && calc.maxEligibleLoan > 0)
+      list.push({ tone: "danger", title: "Term Loan amount exceeds EMI eligibility", detail: `Term Loan requested ${inr(calc.tlAmount)} vs eligible ${inr(calc.maxEligibleLoan)} (based on repayment capacity).`, fix: `Reduce the Term Loan to ${inr(calc.maxEligibleLoan)}, increase own contribution, or extend the repayment period.` });
 
-    if (calc.minTenureMonths === null && calc.loanReq > 0)
-      list.push({ tone: "danger", title: "Loan may not be repayable at any tenure", detail: "Safe EMI capacity is too low to ever cover interest on the requested principal.", fix: "Reduce the loan amount substantially, or grow business/household income before proceeding." });
+    if (calc.minTenureMonths === null && calc.tlAmount > 0)
+      list.push({ tone: "danger", title: "Term Loan may not be repayable at any tenure", detail: "Safe EMI capacity is too low to ever cover interest on the requested Term Loan principal.", fix: "Reduce the Term Loan amount substantially, or grow business/household income before proceeding." });
 
-    const materialCost = num(tl.quotedPrice) + num(wc.totalWcRequired);
-    if (materialCost > 0 && calc.loanReq >= materialCost * 0.98)
-      list.push({ tone: "warn", title: "Loan amount looks like the full material/asset cost", detail: `Requested loan ${inr(calc.loanReq)} is almost equal to the material/asset cost of ${inr(materialCost)}.`, fix: `Margin money (min. 10%) should come from the applicant, not the loan. Loan Amount should be Cost − Margin ≈ ${inr(materialCost * 0.9)}, not the full cost.` });
+    if (num(tl.quotedPrice) > 0 && calc.tlAmount >= num(tl.quotedPrice) * 0.98)
+      list.push({ tone: "warn", title: "Term Loan amount looks like the full asset cost", detail: `Term Loan requested ${inr(calc.tlAmount)} is almost equal to the asset cost of ${inr(num(tl.quotedPrice))}.`, fix: `Margin money (min. 10%) should come from the applicant. Term Loan should be Asset Cost − Margin ≈ ${inr(num(tl.quotedPrice) * 0.9)}, not the full cost.` });
+
+    if (num(wc.totalWcRequired) > 0 && calc.wcLoanAmount >= num(wc.totalWcRequired) * 0.98)
+      list.push({ tone: "warn", title: "Working Capital loan looks like the full requirement", detail: `WC loan requested ${inr(calc.wcLoanAmount)} is almost equal to the WC requirement of ${inr(num(wc.totalWcRequired))}.`, fix: `Margin money (min. 10%) should come from the applicant. WC Loan should be Requirement − Margin ≈ ${inr(num(wc.totalWcRequired) * 0.9)}, not the full amount.` });
 
     const wcEligible = Math.max(calc.tandonMethod2Mpbf, calc.turnoverBankFinance);
-    if (num(wc.wcLoanAmount) > wcEligible && wcEligible > 0)
-      list.push({ tone: "warn", title: "Working capital request exceeds assessed eligibility", detail: `Requested ${inr(num(wc.wcLoanAmount))} vs the higher of Tandon Method II (${inr(calc.tandonMethod2Mpbf)}) and Turnover Method (${inr(calc.turnoverBankFinance)}).`, fix: "Reduce the working capital loan amount to align with the bank assessment methods shown in Step 3, or provide justification for the higher requirement." });
+    if (calc.wcLoanAmount > wcEligible && wcEligible > 0)
+      list.push({ tone: "warn", title: "Working capital request exceeds assessed eligibility", detail: `Requested ${inr(calc.wcLoanAmount)} vs the higher of Tandon Method II (${inr(calc.tandonMethod2Mpbf)}) and Turnover Method (${inr(calc.turnoverBankFinance)}).`, fix: "Reduce the working capital loan amount to align with the bank assessment methods shown in Step 3, or provide justification for the higher requirement." });
 
     return list;
   }, [calc, identity, documents, wc, tl, enterprise, h2]);
 
-  const contextSummary = `Step: ${STEPS[step]}. SHG: ${identity.shgName || "—"}. Enterprise: ${enterprise.enterpriseName || "—"}. Annual sales: ${inr(calc.totalSales)}. Net profit: ${inr(calc.netProfit)}. Loan requested: ${inr(calc.loanReq)}. Max eligible loan: ${inr(calc.maxEligibleLoan)}. DSCR: ${calc.dscr.toFixed(2)}. FOIR: ${pct(calc.foir)}. Recommendation: ${calc.recommendation}. Open issues: ${issues.length}.`;
+  const contextSummary = `Step: ${STEPS[step]}. SHG: ${identity.shgName || "—"}. Enterprise: ${enterprise.enterpriseName || "—"}. Annual sales: ${inr(calc.totalSales)}. Net profit: ${inr(calc.netProfit)}. Term Loan requested: ${inr(calc.tlAmount)}. Total loan requested (WC+TL): ${inr(calc.totalLoanRequested)}. Max eligible Term Loan: ${inr(calc.maxEligibleLoan)}. DSCR: ${calc.dscr.toFixed(2)}. FOIR: ${pct(calc.foir)}. Recommendation: ${calc.recommendation}. Open issues: ${issues.length}.`;
 
   return (
     <div className="min-h-screen bg-stone-50 text-emerald-900" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
@@ -1346,20 +1388,31 @@ function App() {
             <SubHeading>E. Member Credit History with SHG & Banks / एसएचजी व बैंक ऋण इतिहास</SubHeading>
             <FieldGrid fields={CREDIT_HISTORY_FIELDS} obj={credit} setObj={setCredit} />
 
-            <SubHeading>F1. Project Cost & Funding / परियोजना लागत व वित्तपोषण</SubHeading>
-            <Banner tone="warn">
-              Loan Amount = Total Project Cost − Margin Money (min. 10%). Fill the cost of material/asset in F2/F3 below first. / ऋण राशि = कुल परियोजना लागत − मार्जिन मनी (न्यूनतम 10%)। पूरी सामग्री लागत को ऋण राशि के रूप में न भरें।
-            </Banner>
-            <Field label="Total Project Cost (cost of material/asset — auto-fills from F2/F3 below)"><NumInput value={loanF.totalProjectCost} onChange={(v) => setLoanF({ ...loanF, totalProjectCost: v })} /></Field>
-            <Field label="Margin Money – Min 10% (auto-suggested)"><NumInput value={loanF.marginMoney} onChange={(v) => setLoanF({ ...loanF, marginMoney: v })} /></Field>
-            <Field label="Loan Amount Requested = Project Cost − Margin (auto-suggested, override if needed)" mandatory><NumInput value={loanF.loanRequested} onChange={(v) => setLoanF({ ...loanF, loanRequested: v })} /></Field>
-            <FieldGrid fields={F1_FIELDS} obj={loanF} setObj={setLoanF} />
-
             <SubHeading>F2. Working Capital Details / कार्यशील पूंजी विवरण (केवल WC ऋण हेतु)</SubHeading>
             <FieldGrid fields={F2_FIELDS} obj={wc} setObj={setWc} />
 
             <SubHeading>F3. Term Loan Details / टर्म लोन विवरण (केवल TL ऋण हेतु)</SubHeading>
             <FieldGrid fields={F3_FIELDS} obj={tl} setObj={setTl} />
+            <Field label="Repayment Period Requested (Months) / अनुरोधित पुनर्भुगतान अवधि (महीने)"><NumInput prefix="#" value={loanF.tenureMonths} onChange={(v) => setLoanF({ ...loanF, tenureMonths: v })} /></Field>
+            <Field label="Interest Rate Informed to Applicant (% p.a.) / आवेदक को बताई गई ब्याज दर (% वार्षिक)"><NumInput prefix="%" value={loanF.interestRate} onChange={(v) => setLoanF({ ...loanF, interestRate: v })} /></Field>
+            <Field label="Proposed Monthly EMI (auto-suggested from PMT on Term Loan only, override if needed) / प्रस्तावित मासिक ईएमआई (केवल टर्म लोन पर, स्वतः सुझाई गई)" auto>
+              <NumInput value={loanF.proposedEmi} onChange={(v) => setLoanF({ ...loanF, proposedEmi: v })} />
+            </Field>
+            <p className="text-xs text-stone-600 mb-3">EMI is calculated on the Term Loan amount only — Working Capital is a revolving facility without a fixed EMI, assessed separately via the Tandon/Turnover methods below. / ईएमआई केवल टर्म लोन पर गणना होती है — कार्यशील पूंजी की अलग से गणना होती है।</p>
+
+            <SubHeading>F1. Total Project Cost & Loan Summary / कुल परियोजना लागत व ऋण सारांश</SubHeading>
+            <Field label="Source of Margin Money / मार्जिन मनी का स्रोत">
+              <SelectInput value={loanF.marginSource} onChange={(v) => setLoanF({ ...loanF, marginSource: v })} opts={["Bank Savings Account", "SHG Savings", "Savings in Business", "Other"]} />
+            </Field>
+            <Card title="Auto-calculated from F2 + F3 above">
+              <Row label="Working Capital Requirement (F2)" value={inr(num(wc.totalWcRequired))} />
+              <Row label="+ Term Loan Asset Cost (F3)" value={inr(num(tl.quotedPrice))} />
+              <Row label="= Total Project Cost" value={inr(calc.totalProjectCost)} bold auto />
+              <Row label="Working Capital Loan Amount (F2)" value={inr(calc.wcLoanAmount)} />
+              <Row label="+ Term Loan Amount (F3)" value={inr(calc.tlAmount)} />
+              <Row label="= Total Loan Requested" value={inr(calc.totalLoanRequested)} bold auto />
+              <Row label="Margin Money (Total Project Cost − Total Loan)" value={inr(calc.marginMoneyDerived)} last auto />
+            </Card>
           </section>
         )}
 
@@ -1436,6 +1489,14 @@ function App() {
             <SubHeading>H2. Income & Expenditure / आय व व्यय विवरण (वार्षिक)</SubHeading>
             <p className="text-xs text-stone-600 mb-2">Total Purchases and Total Sales are auto-linked from H1.</p>
             <NumList fields={H2_EXPENDITURE_FIELDS} obj={h2} setObj={setH2} />
+            <Field label="Interest Paid to SHG — override with actual passbook figure if available" auto>
+              <NumInput value={h2.interestShgOverride} onChange={(v) => setH2({ ...h2, interestShgOverride: v })} />
+            </Field>
+            <p className="text-xs text-stone-600 -mt-2 mb-3">Auto-calculated (Outstanding × Rate): {inr(calc.interestShgAuto)} — used unless you enter an actual figure above.</p>
+            <Field label="Interest Paid on Bank Loan — override with actual passbook figure if available" auto>
+              <NumInput value={h2.interestBankOverride} onChange={(v) => setH2({ ...h2, interestBankOverride: v })} />
+            </Field>
+            <p className="text-xs text-stone-600 -mt-2 mb-3">Auto-calculated (Outstanding × Rate): {inr(calc.interestBankAuto)} — used unless you enter an actual figure above.</p>
             <Field label="Government Subsidy / Grant Received"><NumInput value={govtSubsidy} onChange={setGovtSubsidy} /></Field>
             {num(h2.wages) + num(h2.familyLabour) > calc.totalSales && calc.totalSales > 0 && (
               <Banner tone="warn">Some expenditure heads look high relative to sales — please double check.</Banner>
@@ -1448,6 +1509,9 @@ function App() {
             {calc.netProfit < 0 && <Banner tone="danger">This shows a net loss for the year — repayment capacity will be weak.</Banner>}
 
             <SubHeading>H3. Balance Sheet / तुलन पत्र</SubHeading>
+            <p className="text-xs text-stone-600 mb-2">
+              Stock, Debtors, and Credit from Suppliers are auto-calculated from the holding periods set in F2 (Working Capital Details, Step 2): (annual Sales or Purchases ÷ 365) × holding days. Adjust the days in Step 2 if these don't match reality. / स्टॉक, देनदार व आपूर्तिकर्ता उधार, F2 में निर्धारित अवधि से स्वतः गणना होते हैं।
+            </p>
             <p className="text-xs font-semibold text-stone-500 mb-1">A. Current Liabilities</p>
             <NumList
               fields={CL_FIELDS}
@@ -1456,6 +1520,7 @@ function App() {
               extraRows={[
                 { label: "SHG Loan Outstanding (auto, from Section E)", value: inr(num(credit.shgLoanOutstanding)) },
                 { label: "Informal Loan (auto, from Section E)", value: inr(num(credit.informalLoan)) },
+                { label: `Credit from Suppliers (auto, ${num(wc.suppliersDays)} days)`, value: inr(calc.creditorsAuto) },
               ]}
             />
 
@@ -1477,6 +1542,8 @@ function App() {
                 { label: "Cash in Bank – Own SB A/c (auto, from Section E)", value: inr(num(credit.ownSbSavings)) },
                 { label: "FD / RD with Bank (auto, from Section E)", value: inr(num(credit.fdRd)) },
                 { label: "Other Savings / Investment (auto, from Section E)", value: inr(num(credit.otherSavings)) },
+                { label: `Value of Stock (auto, ${num(wc.stockHoldingDays)} days)`, value: inr(calc.stockValueAuto) },
+                { label: `Debtors (auto, ${num(wc.debtorsDays)} days)`, value: inr(calc.debtorsAuto) },
               ]}
             />
 
@@ -1592,6 +1659,7 @@ function App() {
               extraRows={[
                 { label: "EMI – SHG Loan (auto, from Section E)", value: inr(num(credit.shgEmi) * 12) },
                 { label: "EMI – Bank Loan (auto, from Section E)", value: inr(num(credit.bankLoanEmi) * 12) },
+                { label: "EMI – Informal Loan (auto, from Section E)", value: inr(num(credit.informalLoanEmi) * 12) },
               ]}
             />
 
@@ -1606,6 +1674,7 @@ function App() {
             <Card>
               <Row label="EMI – SHG Loan (auto)" value={inr(calc.existingEmiShg)} auto />
               <Row label="EMI – Existing Bank Loan (auto)" value={inr(num(credit.bankLoanEmi))} auto />
+              <Row label="EMI – Informal Loan (auto)" value={inr(num(credit.informalLoanEmi))} auto />
               <Row label="EMI – Proposed New Loan (as declared)" value={inr(num(loanF.proposedEmi))} />
               <Row label="TOTAL MONTHLY EMI" value={inr(calc.totalMonthlyEmi)} bold auto />
               <Row label="Net Cash Surplus After All EMIs" value={inr(calc.netCashSurplusAfterAllEmis)} bold last auto />
@@ -1618,7 +1687,7 @@ function App() {
             <h2 className="serif text-xl font-bold mb-1">L. Loan Repayment Feasibility</h2>
             <SubHeading>L1. Input Data / इनपुट डेटा</SubHeading>
             <Card>
-              <Row label="Proposed Loan Amount (auto)" value={inr(calc.loanReq)} />
+              <Row label="Proposed Term Loan Amount (auto, EMI basis)" value={inr(calc.tlAmount)} />
               <Row label="Repayment Period (auto)" value={`${loanF.tenureMonths} months`} />
               <Row label="Annual Interest Rate (auto)" value={pct(num(loanF.interestRate))} last />
             </Card>
@@ -1633,7 +1702,7 @@ function App() {
             <Field label="Existing Monthly EMI – Bank / Other – override">
               <NumInput value={emiL1.existingEmiBankOverride} onChange={(v) => setEmiL1({ ...emiL1, existingEmiBankOverride: v })} />
             </Field>
-            <p className="text-xs text-stone-600 -mt-2 mb-3">Existing EMI – SHG (auto): {inr(calc.existingEmiShg)}</p>
+            <p className="text-xs text-stone-600 -mt-2 mb-3">Existing EMI – SHG (auto): {inr(calc.existingEmiShg)} · Informal Loan (auto): {inr(calc.existingEmiInformal)}</p>
 
             <SubHeading>L2. Auto-Calculated EMI & Feasibility / स्वतः गणना की गई ईएमआई</SubHeading>
             <Card>
@@ -1677,7 +1746,7 @@ function App() {
 
         {step === 6 && (
           <>
-            <Report identity={identity} enterprise={enterprise} credit={credit} loanF={loanF} calc={calc} />
+            <Report identity={identity} enterprise={enterprise} credit={credit} loanF={loanF} wc={wc} tl={tl} calc={calc} />
             <div className="mt-4 no-print space-y-2">
               <div className="flex gap-2">
                 <button onClick={shareAsText} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-emerald-900 text-emerald-900 text-sm font-semibold">
@@ -1759,7 +1828,7 @@ function Stamp({ recommendation, tone }) {
   );
 }
 
-function Report({ identity, enterprise, credit, loanF, calc }) {
+function Report({ identity, enterprise, credit, loanF, wc, tl, calc }) {
   return (
     <div className="print-area bg-white border border-stone-300 rounded-lg p-5 shadow-sm">
       <div className="text-center mb-4">
@@ -1789,10 +1858,13 @@ function Report({ identity, enterprise, credit, loanF, calc }) {
       <Row label="Monthly Household Surplus" value={inr(calc.monthlyHouseholdSurplus)} last auto />
 
       <SubHeading>4. Proposed Investment / प्रस्तावित निवेश</SubHeading>
-      <Row label="Purpose" value={loanF.facilityType} />
-      <Row label="Total Project Cost" value={inr(loanF.totalProjectCost)} />
-      <Row label="Margin Money" value={inr(loanF.marginMoney)} />
-      <Row label="Loan Requested" value={inr(calc.loanReq)} last />
+      <Row label="Working Capital Purpose" value={wc.wcPurpose || "—"} />
+      <Row label="Term Loan Purpose" value={tl.tlPurpose || "—"} />
+      <Row label="Total Project Cost" value={inr(calc.totalProjectCost)} auto />
+      <Row label="Margin Money" value={inr(calc.marginMoneyDerived)} auto />
+      <Row label="Working Capital Loan Amount" value={inr(calc.wcLoanAmount)} auto />
+      <Row label="Term Loan Amount" value={inr(calc.tlAmount)} auto />
+      <Row label="Total Loan Requested" value={inr(calc.totalLoanRequested)} bold last auto />
 
       <SubHeading>5. Bank Credit Analysis / बैंक ऋण विश्लेषण</SubHeading>
       <Row label="Safe EMI Capacity" value={inr(calc.safeEmiCapacity)} auto />
@@ -1819,10 +1891,10 @@ function Report({ identity, enterprise, credit, loanF, calc }) {
         )}
         {calc.ownersCapital < 0 && <li>Owner's capital works out negative — liabilities other than capital exceed total assets; treat this report as provisional until resolved.</li>}
         {calc.monthlyHouseholdSurplus < 0 && <li>Household expenses currently exceed income; reducing expenses will improve eligibility.</li>}
-        {calc.loanReq > calc.maxEligibleLoan ? (
-          <li>Your proposed loan of {inr(calc.loanReq)} exceeds repayment capacity of {inr(calc.maxEligibleLoan)}. Consider reducing the loan or increasing own contribution.</li>
+        {calc.tlAmount > calc.maxEligibleLoan ? (
+          <li>Your proposed Term Loan of {inr(calc.tlAmount)} exceeds repayment capacity of {inr(calc.maxEligibleLoan)}. Consider reducing the Term Loan or increasing own contribution. (Working Capital is assessed separately via Tandon/Turnover methods.)</li>
         ) : (
-          <li>Based on your financial data, the estimated sanctionable amount is {inr(calc.maxEligibleLoan)}.</li>
+          <li>Based on your financial data, the estimated sanctionable Term Loan amount is {inr(calc.maxEligibleLoan)}.</li>
         )}
         {calc.recommendation === "Not Recommended" && calc.minTenureMonths && calc.minTenureMonths <= 60 && (
           <li>Alternative: extending the repayment period to about {calc.minTenureMonths} months (within the 60-month maximum) would make this loan viable at the current EMI capacity — editable on Step 2 if the applicant agrees.</li>

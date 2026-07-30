@@ -280,7 +280,7 @@ const CREDIT_HISTORY_FIELDS = [
 const F1_FIELDS = [
   { k: "marginSource", l: "Source of Margin Money / मार्जिन मनी का स्रोत", type: "select", opts: ["Bank Savings Account", "SHG Savings", "Savings in Business", "Other"] },
   { k: "facilityType", l: "Loan Facility Type / ऋण सुविधा प्रकार", type: "select", opts: ["Term Loan", "Working Capital", "Composite"] },
-  { k: "tenureMonths", l: "Repayment Period Requested (Months) / अनुरोधित पुनर्भुगतान अवधि (महीने)", type: "number", prefix: "#" },
+  { k: "tenureMonths", l: "Repayment Period Requested (Months, EMI-paying period — EXCLUDING moratorium) / अनुरोधित पुनर्भुगतान अवधि (महीने, केवल ईएमआई अवधि — अधिस्थगन को छोड़कर)", type: "number", prefix: "#" },
   { k: "proposedEmi", l: "Proposed Monthly EMI (auto-suggested from PMT, override if needed) / प्रस्तावित मासिक ईएमआई (स्वतः सुझाई गई, आवश्यकता होने पर बदलें)", type: "number" },
   { k: "interestRate", l: "Interest Rate Informed to Applicant (% p.a.) / आवेदक को बताई गई ब्याज दर (% वार्षिक)", type: "number", prefix: "%" },
 ];
@@ -295,6 +295,7 @@ const F3_FIELDS = [
   { k: "newOrReplacement", l: "New Purchase or Replacement? / नई खरीद या प्रतिस्थापन?", type: "select", opts: ["New Purchase", "Replacement"] },
   { k: "assetLife", l: "Estimated Life of Asset (Years) / परिसंपत्ति का अनुमानित जीवनकाल (वर्ष)", type: "number", prefix: "#" }, { k: "supplierName", l: "Supplier / Vendor Name and Location / आपूर्तिकर्ता / विक्रेता का नाम व स्थान", type: "text" },
   { k: "quotedPrice", l: "Quoted Price of Asset / परिसंपत्ति का उद्धृत मूल्य", type: "number" }, { k: "tlAmount", l: "Term Loan Amount Requested / अनुरोधित टर्म लोन राशि", type: "number" },
+  { k: "moratoriumMonths", l: "Moratorium Period (Months, before EMI starts) / अधिस्थगन अवधि (महीने, ईएमआई शुरू होने से पहले)", type: "number", prefix: "#", help: "A payment-free grace period BEFORE the first EMI is due (e.g. time to install/commission the asset) — this is IN ADDITION TO the Repayment Period below, not part of it. Total Loan Period = Moratorium + Repayment Period. Interest still accrues during the moratorium and gets added to the loan principal, so the EMI (once it starts) is calculated on a slightly higher amount. Leave 0 if there's no moratorium. / यह पहली ईएमआई से पहले की अतिरिक्त भुगतान-मुक्त अवधि है (पुनर्भुगतान अवधि से अलग)। कुल ऋण अवधि = अधिस्थगन + पुनर्भुगतान अवधि।" },
 ];
 
 const H2_EXPENDITURE_FIELDS = [
@@ -383,6 +384,7 @@ const CHAT_KB = [
   { k: ["red", "auto", "why is some text"], a: "Any field or value shown in red is calculated automatically from other entries — you don't need to type those yourself. For example, Avg Monthly Sale turns red once you enter Daily Sale, because it's computed from it. / लाल रंग में दिखाया गया कोई भी फ़ील्ड या मूल्य अन्य प्रविष्टियों से स्वतः गणना होता है — आपको इसे स्वयं भरने की आवश्यकता नहीं। उदाहरण के लिए, दैनिक बिक्री भरते ही औसत मासिक बिक्री लाल हो जाती है क्योंकि वह उससे गणना होती है।" },
   { k: ["working capital", "term loan", "wc vs", "difference between"], a: "Working Capital covers day-to-day running costs (stock, raw material) that get recovered as you sell — it's short-term and revolving. A Term Loan funds a one-time purchase like machinery or a shop asset, repaid over a fixed period. Fill F2 for Working Capital details and F3 for Term Loan details. / कार्यशील पूंजी दैनिक खर्चों (स्टॉक, कच्चा माल) को कवर करती है जो बिक्री से वसूल होते हैं — यह अल्पकालिक व घूर्णनशील है। टर्म लोन मशीनरी जैसी एकबारगी खरीद के लिए होता है, निश्चित अवधि में चुकाया जाता है। कार्यशील पूंजी के लिए F2 और टर्म लोन के लिए F3 भरें।" },
   { k: ["emi on working capital", "why no emi", "emi only on term"], a: "EMI is calculated only on the Term Loan, because Working Capital is a revolving facility (like an overdraft) with no fixed monthly installment — it's assessed separately using the Tandon Committee and Turnover methods in Step 3, not DSCR/FOIR. / ईएमआई केवल टर्म लोन पर गणना होती है; कार्यशील पूंजी की अलग से टंडन/टर्नओवर पद्धति से जांच होती है।" },
+  { k: ["moratorium", "grace period", "repayment period include"], a: "Repayment Period (F3) is the EMI-paying period only — it does NOT include the Moratorium. Moratorium is a separate payment-free period before the first EMI. Total Loan Period = Moratorium + Repayment Period, shown automatically in F3. Interest still builds up during the moratorium and gets added to the loan before EMI is calculated. / पुनर्भुगतान अवधि में अधिस्थगन शामिल नहीं है — यह अलग है। कुल ऋण अवधि = अधिस्थगन + पुनर्भुगतान अवधि।" },
   { k: ["margin money", "margin", "10%"], a: "Margin Money is the portion each loan's cost the applicant/SHG contributes themselves — usually a minimum of 10%. Enter Working Capital Required (F2) and Asset Cost (F3); the app auto-suggests each loan amount at 90% of its cost. Total Project Cost, Total Loan Requested, and Margin Money are then calculated automatically from these two, shown in the summary after F3. / मार्जिन मनी प्रत्येक ऋण की लागत का वह हिस्सा है जो आवेदक स्वयं देते हैं — आमतौर पर न्यूनतम 10%। F2 व F3 भरने पर कुल परियोजना लागत व ऋण राशि स्वतः गणना होती है।"},
   { k: ["material cost", "loan amount same", "quoted price"], a: "The Loan Amount should never equal the full cost of material or the asset being purchased — margin money has to come from the applicant. If you see a warning about this in Checks, it means the requested loan looks too close to the full cost. / ऋण राशि कभी भी सामग्री या परिसंपत्ति की पूरी लागत के बराबर नहीं होनी चाहिए — मार्जिन मनी आवेदक से आनी चाहिए। यदि Checks में इसकी चेतावनी दिखे, तो अनुरोधित ऋण पूरी लागत के बहुत करीब है।" },
   { k: ["balance sheet", "tally", "owner's capital", "owners capital"], a: "Owner's Capital = Total Assets − Total Liabilities other than capital. Because of this formula, the balance sheet always tallies by construction — Owner's Capital is the balancing figure. If it comes out negative, that's a real warning sign (liabilities exceed assets), which shows up in Checks. / स्वामी की पूंजी = कुल परिसंपत्ति − पूंजी के अलावा कुल देनदारियां। इस सूत्र के कारण तुलन पत्र हमेशा मेल खाता है — स्वामी की पूंजी संतुलन आंकड़ा है। यदि यह ऋणात्मक आए, तो यह वास्तविक चेतावनी है (देनदारियां परिसंपत्तियों से अधिक), जो Checks में दिखती है।" },
@@ -816,12 +818,20 @@ function App() {
     const existingEmiInformal = num(credit.informalLoanEmi);
     const totalExistingEmi = existingEmiShg + existingEmiBank + existingEmiInformal;
 
-    const calculatedEmi = pmt(tlAmount, loanF.interestRate, loanF.tenureMonths);
+    // Moratorium: interest still accrues (and compounds) during the payment-free period, so the EMI (once it
+    // starts) is calculated on the capitalized principal, not the original loan amount.
+    const moratoriumMonths = num(tl.moratoriumMonths);
+    const monthlyRateForMoratorium = num(loanF.interestRate) / 100 / 12;
+    const tlPrincipalAfterMoratorium = tlAmount * Math.pow(1 + monthlyRateForMoratorium, moratoriumMonths);
+
+    const calculatedEmi = pmt(tlPrincipalAfterMoratorium, loanF.interestRate, loanF.tenureMonths);
     const surplusBeforeNewEmi = emiMonthlyHHIncome - emiMonthlyHHExpenditure - totalExistingEmi;
     const surplusAfterNewEmi = surplusBeforeNewEmi - calculatedEmi;
     const safeEmiCapacity = Math.max(surplusBeforeNewEmi, 0) * 0.5;
-    const maxEligibleLoan = maxLoanFromEmi(safeEmiCapacity, loanF.interestRate, loanF.tenureMonths);
-    const minTenureMonths = minTenure(tlAmount, loanF.interestRate, safeEmiCapacity);
+    const maxPrincipalAfterMoratorium = maxLoanFromEmi(safeEmiCapacity, loanF.interestRate, loanF.tenureMonths);
+    // Discount back through the moratorium capitalization so this is comparable to the originally-requested (pre-moratorium) amount.
+    const maxEligibleLoan = moratoriumMonths > 0 ? maxPrincipalAfterMoratorium / Math.pow(1 + monthlyRateForMoratorium, moratoriumMonths) : maxPrincipalAfterMoratorium;
+    const minTenureMonths = minTenure(tlPrincipalAfterMoratorium, loanF.interestRate, safeEmiCapacity);
 
     const foir = emiMonthlyHHIncome ? ((totalExistingEmi + calculatedEmi) / emiMonthlyHHIncome) * 100 : 0;
     const dscr = (totalExistingEmi + calculatedEmi) ? (surplusBeforeNewEmi + calculatedEmi + totalExistingEmi) / (totalExistingEmi + calculatedEmi) : 0;
@@ -839,7 +849,7 @@ function App() {
       totalCL, totalLTL, totalCA, totalFA, totalOA, totalAssets, ownersCapital, totalNetWorth, totalLiabilities, balances,
       clOtherThanBankBorrowings, workingCapitalGap, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
       projectedTurnover, turnoverWcRequirement, turnoverMargin, turnoverBankFinance,
-      tlAmount, wcLoanAmount, totalProjectCost, totalLoanRequested, marginMoneyDerived, stockValueAuto, debtorsAuto, creditorsAuto, stockHoldingDays, debtorsDays, suppliersDays, interestShgAuto, interestBankAuto, interestInformalAuto, interestShgFinal, interestBankFinal, interestInformalFinal,
+      tlAmount, wcLoanAmount, totalProjectCost, totalLoanRequested, marginMoneyDerived, stockValueAuto, debtorsAuto, creditorsAuto, stockHoldingDays, debtorsDays, suppliersDays, interestShgAuto, interestBankAuto, interestInformalAuto, interestShgFinal, interestBankFinal, interestInformalFinal, moratoriumMonths, tlPrincipalAfterMoratorium,
       salesY2, salesY3, opexY2, opexY3, purchasesY2, purchasesY3, netProfitY1, netProfitY2, netProfitY3, annualEmi,
       hhIncomeTotalWithBiz, hhExpTotal, householdSurplusAnnual, monthlyHHIncome, monthlyHHExpenditure, monthlyHouseholdSurplus,
       totalMonthlyEmi, netCashSurplusAfterAllEmis,
@@ -1038,7 +1048,7 @@ function App() {
     }));
     setTl((t) => ({
       ...t, tlPurpose: "Purchase of refrigerator & display shelving", assetDescription: "Double-door refrigerator + display shelving unit",
-      newOrReplacement: "New Purchase", assetLife: 8, supplierName: "Kelvin Appliances, Wardha", quotedPrice: 150000,
+      newOrReplacement: "New Purchase", assetLife: 8, supplierName: "Kelvin Appliances, Wardha", quotedPrice: 150000, moratoriumMonths: 2,
     }));
     setLoanF((l) => ({ ...l, marginSource: "Bank Savings Account", tenureMonths: 36, interestRate: 12 }));
     setH1({
@@ -1409,12 +1419,17 @@ function App() {
 
             <SubHeading>F3. Term Loan Details / टर्म लोन विवरण (केवल TL ऋण हेतु)</SubHeading>
             <FieldGrid fields={F3_FIELDS} obj={tl} setObj={setTl} />
-            <Field label="Repayment Period Requested (Months) / अनुरोधित पुनर्भुगतान अवधि (महीने)"><NumInput prefix="#" value={loanF.tenureMonths} onChange={(v) => setLoanF({ ...loanF, tenureMonths: v })} /></Field>
+            <Field label="Repayment Period Requested (Months, EMI-paying period — EXCLUDING moratorium above) / अनुरोधित पुनर्भुगतान अवधि (केवल ईएमआई अवधि, अधिस्थगन को छोड़कर)"><NumInput prefix="#" value={loanF.tenureMonths} onChange={(v) => setLoanF({ ...loanF, tenureMonths: v })} /></Field>
             <Field label="Interest Rate Informed to Applicant (% p.a.) / आवेदक को बताई गई ब्याज दर (% वार्षिक)"><NumInput prefix="%" value={loanF.interestRate} onChange={(v) => setLoanF({ ...loanF, interestRate: v })} /></Field>
             <Field label="Proposed Monthly EMI (auto-suggested from PMT on Term Loan only, override if needed) / प्रस्तावित मासिक ईएमआई (केवल टर्म लोन पर, स्वतः सुझाई गई)" auto>
               <NumInput value={loanF.proposedEmi} onChange={(v) => setLoanF({ ...loanF, proposedEmi: v })} />
             </Field>
-            <p className="text-xs text-stone-600 mb-3">EMI is calculated on the Term Loan amount only — Working Capital is a revolving facility without a fixed EMI, assessed separately via the Tandon/Turnover methods below. / ईएमआई केवल टर्म लोन पर गणना होती है — कार्यशील पूंजी की अलग से गणना होती है।</p>
+            <Card>
+              <Row label="Moratorium (payment-free)" value={`${calc.moratoriumMonths} months`} />
+              <Row label="+ Repayment Period (EMI-paying)" value={`${num(loanF.tenureMonths)} months`} />
+              <Row label="= Total Loan Period, start to final EMI" value={`${calc.moratoriumMonths + num(loanF.tenureMonths)} months`} bold last auto />
+            </Card>
+            <p className="text-xs text-stone-600 mb-3">EMI is calculated on the Term Loan amount only, over the Repayment Period (after any moratorium) — Working Capital is a revolving facility without a fixed EMI, assessed separately via the Tandon/Turnover methods below. / ईएमआई केवल टर्म लोन पर, पुनर्भुगतान अवधि (अधिस्थगन के बाद) पर गणना होती है।</p>
 
             <SubHeading>F1. Total Project Cost & Loan Summary / कुल परियोजना लागत व ऋण सारांश</SubHeading>
             <Field label="Source of Margin Money / मार्जिन मनी का स्रोत">
@@ -1712,9 +1727,15 @@ function App() {
             <SubHeading>L1. Input Data / इनपुट डेटा</SubHeading>
             <Card>
               <Row label="Proposed Term Loan Amount (auto, EMI basis)" value={inr(calc.tlAmount)} />
+              <Row label="Moratorium Period (auto, from F3)" value={`${calc.moratoriumMonths} months`} />
               <Row label="Repayment Period (auto)" value={`${loanF.tenureMonths} months`} />
               <Row label="Annual Interest Rate (auto)" value={pct(num(loanF.interestRate))} last />
             </Card>
+            {calc.moratoriumMonths > 0 && (
+              <Banner tone="warn">
+                Interest accrues during the {calc.moratoriumMonths}-month moratorium and is added to the loan — EMI is calculated on {inr(calc.tlPrincipalAfterMoratorium)} (not the original {inr(calc.tlAmount)}), once repayment starts. / अधिस्थगन के दौरान ब्याज जुड़ता है, ईएमआई बढ़ी हुई राशि पर गणना होती है।
+              </Banner>
+            )}
             <Field label="Monthly Household Income – override" help="Defaults to the Household step's figure; override if needed. / डिफ़ॉल्ट रूप से पारिवारिक चरण का आंकड़ा; आवश्यकता होने पर बदलें।">
               <NumInput value={emiL1.monthlyHHIncomeOverride} onChange={(v) => setEmiL1({ ...emiL1, monthlyHHIncomeOverride: v })} />
             </Field>
@@ -1748,6 +1769,9 @@ function App() {
                 help="Fixed Obligation to Income Ratio — the % of monthly household income already committed to EMIs (existing + this proposed loan). Banks generally prefer this to stay under 50%; above that, the household is considered over-leveraged. / निश्चित दायित्व-आय अनुपात — बैंक आमतौर पर इसे 50% से नीचे रखना पसंद करते हैं।"
               />
             </Card>
+            <p className="text-xs text-stone-600 mb-3">
+              <span className="font-semibold">FOIR</span> = % of monthly household income already going to EMIs (existing + this loan) — banks want this under 50%. <span className="font-semibold">DSCR</span> = how many times your surplus can cover the EMI — banks want this at 1.2 or above. / एफओआईआर 50% से कम व डीएससीआर 1.2 या अधिक होना अच्छा माना जाता है।
+            </p>
             {calc.surplusAfterNewEmi < 0 ? (
               <Banner tone="danger">Not viable at the requested terms — shortfall of {inr(Math.abs(calc.surplusAfterNewEmi))}. See suggestions below.</Banner>
             ) : (

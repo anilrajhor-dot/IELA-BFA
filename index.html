@@ -1244,6 +1244,54 @@ function App() {
     if (enterprise.premises !== "Rented" && num(h2.rent) > 0)
       list.push({ tone: "warn", title: "Rent booked but premises not marked Rented", detail: `Business Premises is "${enterprise.premises || "not set"}" but ${inr(num(h2.rent))} of Rent is booked in Income & Expenditure (Step 3).`, fix: "If rent is genuinely paid, set Business Premises to 'Rented' in Step 2. If the premises is owned, remove the Rent expense instead." });
 
+    if (enterprise.enterpriseType === "Manufacturing" && num(h3.plantMachinery) === 0)
+      list.push({ tone: "warn", title: "Manufacturing business with zero machinery", detail: "Type of Enterprise is 'Manufacturing' but Plant & Machinery in the Balance Sheet (Step 3, Fixed Assets) is ₹0.", fix: "Manufacturing typically needs some machinery/equipment — check if this was missed in Step 3, or correct the Type of Enterprise in Step 2 if it's actually Trading/Services." });
+
+    if (enterprise.startDate) {
+      const businessAgeYears = (new Date() - new Date(enterprise.startDate)) / (1000 * 60 * 60 * 24 * 365.25);
+      if (businessAgeYears >= 0 && num(enterprise.experience) > businessAgeYears + 1) {
+        const ageDisplay = businessAgeYears < 1 ? `${Math.round(businessAgeYears * 12)} months` : `${businessAgeYears.toFixed(1)} years`;
+        list.push({ tone: "warn", title: "Business age doesn't match stated experience", detail: `Business Start Date implies the business is about ${ageDisplay} old, but Business Experience is entered as ${enterprise.experience} years.`, fix: "Check Business Start Date and Business Experience in Step 2 — one of them is likely incorrect (experience may include time before this specific enterprise, or the start date may be wrong)." });
+      }
+    }
+
+    if (num(enterprise.employees) > 0 && num(h2.wages) === 0)
+      list.push({ tone: "warn", title: "Employees present but zero wage expense", detail: `No. of Employees is ${enterprise.employees} but Wages & Labour in Income & Expenditure (Step 3) is ₹0.`, fix: "If employees are paid, add the wage expense in Step 3. If they're unpaid family members, use Family Labour instead and consider setting No. of Employees to 0." });
+
+    if (num(tl.assetLife) > 0 && num(tl.assetLife) * 12 < num(loanF.tenureMonths))
+      list.push({ tone: "warn", title: "Repayment period exceeds the asset's useful life", detail: `Estimated Life of Asset is ${tl.assetLife} years (${num(tl.assetLife) * 12} months), but the Repayment Period requested is ${loanF.tenureMonths} months.`, fix: "Shorten the repayment period to within the asset's useful life, or double-check the asset life estimate in Step 2 (F3) — banks generally avoid financing beyond an asset's productive life." });
+
+    if (k1.existingHhLoan === "No" && (num(credit.shgLoanOutstanding) > 0 || num(credit.bankLoanOutstanding) > 0 || num(credit.informalLoan) > 0))
+      list.push({ tone: "warn", title: "\"No existing household loan\" contradicts Section E", detail: "Household Profile (Step 5, K1) says there's no existing household loan, but Section E (Step 2) shows an outstanding SHG, Bank, and/or Informal loan.", fix: "Update K1 to 'Yes' if these loans are genuinely outstanding, or correct Section E if they've already been repaid." });
+
+    if (num(k1.earningMembers) > num(k1.totalMembers) && num(k1.totalMembers) > 0)
+      list.push({ tone: "danger", title: "Earning members exceed total family members", detail: `Household Profile shows ${k1.earningMembers} earning members out of ${k1.totalMembers} total family members.`, fix: "Check Total Family Members and Earning Members in Step 5 (K1) — earning members can't exceed the total." });
+
+    if (enterprise.startDate && new Date(enterprise.startDate) > new Date())
+      list.push({ tone: "danger", title: "Business Start Date is in the future", detail: `Business Start Date is set to ${enterprise.startDate}.`, fix: "Correct the Business Start Date in Step 2 — it should be a date in the past." });
+
+    if (num(credit.loansLast3Yrs) === 0 && num(credit.lastLoanAmount) > 0)
+      list.push({ tone: "warn", title: "No SHG loans in last 3 years, but a last loan amount is entered", detail: `No. of Loans from SHG (Last 3 Yrs) is 0, but Amount of Last SHG Loan is ${inr(num(credit.lastLoanAmount))}.`, fix: "Check Section E (Step 2) — if there really were no loans in the last 3 years, the last loan amount should likely be blank or from an earlier period." });
+
+    if (identity.dob) {
+      const ageYears = (new Date() - new Date(identity.dob)) / (1000 * 60 * 60 * 24 * 365.25);
+      if (ageYears > 0 && num(enterprise.experience) > ageYears - 12) {
+        list.push({ tone: "warn", title: "Business experience implies starting at an implausibly young age", detail: `Member's age is about ${Math.floor(ageYears)} years, but Business Experience of ${enterprise.experience} years implies the business started around age ${Math.round(ageYears - num(enterprise.experience))}.`, fix: "Check Date of Birth and Business Experience in Steps 1 and 2 — one of them is likely incorrect." });
+      }
+    }
+
+    if (num(credit.shgLoanOutstanding) > 0 && calc.interestShgFinal === 0)
+      list.push({ tone: "warn", title: "SHG Loan outstanding but zero interest expense", detail: `SHG Loan Outstanding is ${inr(num(credit.shgLoanOutstanding))}, but Interest Rate on SHG Loan is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the SHG Loan interest rate in Section E (Step 2), or fill the actual interest paid from the SHG passbook directly in Step 3." });
+
+    if (num(credit.bankLoanOutstanding) > 0 && calc.interestBankFinal === 0)
+      list.push({ tone: "warn", title: "Bank Loan outstanding but zero interest expense", detail: `Bank Loan Outstanding is ${inr(num(credit.bankLoanOutstanding))}, but Interest Rate on Bank Loan is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the Bank Loan interest rate in Section E (Step 2), or fill the actual interest paid from the bank passbook/statement directly in Step 3." });
+
+    if (num(credit.informalLoan) > 0 && calc.interestInformalFinal === 0)
+      list.push({ tone: "warn", title: "Informal Loan outstanding but zero interest expense", detail: `Informal Loan is ${inr(num(credit.informalLoan))}, but its Interest Rate is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the interest rate on the informal loan in Section E (Step 2) if any is charged, or fill the actual amount paid directly in Step 3." });
+
+    if (calc.totalFA > 0 && num(h2.depreciation) === 0)
+      list.push({ tone: "warn", title: "Fixed assets present but zero depreciation charged", detail: `Total Fixed Assets in the Balance Sheet is ${inr(calc.totalFA)}, but Depreciation in Income & Expenditure (Step 3) is ₹0.`, fix: "Fixed assets like machinery, furniture, or vehicles normally lose value over time — add an estimated depreciation expense in Step 3, or confirm if these assets are genuinely non-depreciating (e.g. land)." });
+
     if (calc.cogs > calc.totalSales && calc.totalSales > 0)
       list.push({ tone: "warn", title: "Cost of Goods Sold exceeds Sales", detail: `COGS is ${inr(calc.cogs)} against Sales of ${inr(calc.totalSales)}.`, fix: "Re-check Opening Stock, Purchases, and Closing Stock (Balance Sheet) figures in Step 3 — one of these is likely overstated or understated." });
 
@@ -1276,7 +1324,7 @@ function App() {
       list.push({ tone: "warn", title: "Working capital request exceeds assessed eligibility", detail: `Requested ${inr(calc.wcLoanAmount)} vs the higher of Tandon Method II (${inr(calc.tandonMethod2Mpbf)}) and Turnover Method (${inr(calc.turnoverBankFinance)}).`, fix: "Reduce the working capital loan amount to align with the bank assessment methods shown in Step 3, or provide justification for the higher requirement." });
 
     return list;
-  }, [calc, identity, documents, wc, tl, enterprise, h2]);
+  }, [calc, identity, documents, wc, tl, enterprise, h2, h3, k1]);
 
   const contextSummary = `Step: ${STEPS[step]}. SHG: ${identity.shgName || "—"}. Enterprise: ${enterprise.enterpriseName || "—"}. Annual sales: ${inr(calc.totalSales)}. Net profit: ${inr(calc.netProfit)}. Term Loan requested: ${inr(calc.tlAmount)}. Total loan requested (WC+TL): ${inr(calc.totalLoanRequested)}. Max eligible Term Loan: ${inr(calc.maxEligibleLoan)}. DSCR: ${calc.dscr.toFixed(2)}. FOIR: ${pct(calc.foir)}. Recommendation: ${calc.recommendation}. Open issues: ${issues.length}.`;
 

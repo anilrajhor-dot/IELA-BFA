@@ -1284,13 +1284,13 @@ function App() {
     }
 
     if (num(credit.shgLoanOutstanding) > 0 && calc.interestShgFinal === 0)
-      list.push({ tone: "warn", title: "SHG Loan outstanding but zero interest expense", detail: `SHG Loan Outstanding is ${inr(num(credit.shgLoanOutstanding))}, but Interest Rate on SHG Loan is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the SHG Loan interest rate in Section E (Step 2), or fill the actual interest paid from the SHG passbook directly in Step 3." });
+      list.push({ tone: "danger", title: "SHG Loan outstanding but zero interest expense", detail: `SHG Loan Outstanding is ${inr(num(credit.shgLoanOutstanding))}, but Interest Rate on SHG Loan is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the SHG Loan interest rate in Section E (Step 2), or fill the actual interest paid from the SHG passbook directly in Step 3." });
 
     if (num(credit.bankLoanOutstanding) > 0 && calc.interestBankFinal === 0)
-      list.push({ tone: "warn", title: "Bank Loan outstanding but zero interest expense", detail: `Bank Loan Outstanding is ${inr(num(credit.bankLoanOutstanding))}, but Interest Rate on Bank Loan is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the Bank Loan interest rate in Section E (Step 2), or fill the actual interest paid from the bank passbook/statement directly in Step 3." });
+      list.push({ tone: "danger", title: "Bank Loan outstanding but zero interest expense", detail: `Bank Loan Outstanding is ${inr(num(credit.bankLoanOutstanding))}, but Interest Rate on Bank Loan is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the Bank Loan interest rate in Section E (Step 2), or fill the actual interest paid from the bank passbook/statement directly in Step 3." });
 
     if (num(credit.informalLoan) > 0 && calc.interestInformalFinal === 0)
-      list.push({ tone: "warn", title: "Informal Loan outstanding but zero interest expense", detail: `Informal Loan is ${inr(num(credit.informalLoan))}, but its Interest Rate is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the interest rate on the informal loan in Section E (Step 2) if any is charged, or fill the actual amount paid directly in Step 3." });
+      list.push({ tone: "danger", title: "Informal Loan outstanding but zero interest expense", detail: `Informal Loan is ${inr(num(credit.informalLoan))}, but its Interest Rate is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the interest rate on the informal loan in Section E (Step 2) if any is charged, or fill the actual amount paid directly in Step 3." });
 
     if (calc.totalFA > 0 && num(h2.depreciation) === 0)
       list.push({ tone: "warn", title: "Fixed assets present but zero depreciation charged", detail: `Total Fixed Assets in the Balance Sheet is ${inr(calc.totalFA)}, but Depreciation in Income & Expenditure (Step 3) is ₹0.`, fix: "Fixed assets like machinery, furniture, or vehicles normally lose value over time — add an estimated depreciation expense in Step 3, or confirm if these assets are genuinely non-depreciating (e.g. land)." });

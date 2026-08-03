@@ -388,7 +388,7 @@ const CHAT_KB = [
   { k: ["family labour", "family labor"], a: "Family Labour is the imputed value of unpaid work done by family members in the business — even though no wage is actually paid, it's still a real cost of running the business and should be estimated and included. / पारिवारिक श्रम, व्यवसाय में परिवार के सदस्यों द्वारा बिना वेतन किए गए कार्य का अनुमानित मूल्य है — भले ही कोई वेतन न दिया जाए, यह व्यवसाय चलाने की वास्तविक लागत है और इसे शामिल किया जाना चाहिए।" },
   { k: ["opening stock", "closing stock", "cogs", "cost of goods sold"], a: "Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. Opening Stock is what you had at the start of the year (enter it in Step 3); Closing Stock is now auto-calculated from the Stock Holding Period set in Step 2 (F2), so you don't enter it manually. This gives a more accurate Gross Profit than just Sales − Purchases. / बेची गई वस्तुओं की लागत (COGS) = प्रारंभिक स्टॉक + खरीद − अंतिम स्टॉक। अंतिम स्टॉक अब स्टॉक धारण अवधि से स्वतः गणना होता है।" },
   { k: ["holding period", "stock holding", "debtors period", "suppliers credit period", "working capital cycle", "60 days", "37 days", "90 days"], a: "Just enter one number in F2 (Step 2): Total Working Capital Cycle (default 90 days). The net formula is Stock (fixed 60 days) + Debtors − Suppliers' Credit (fixed 7 days) = your total. Debtors is calculated automatically to make this exact — e.g. a 90-day cycle gives Stock 60 + Debtors 37 − Suppliers 7. These then calculate Stock, Debtors, and Credit from Suppliers in the Balance Sheet. / F2 में केवल एक अंक भरें: कुल कार्यशील पूंजी चक्र (डिफ़ॉल्ट 90 दिन)। सूत्र: स्टॉक (स्थिर 60) + देनदार − आपूर्तिकर्ता (स्थिर 7) = कुल।" },
-  { k: ["interest on loan", "interest paid", "interest expense", "interest charged"], a: "Interest on SHG and Bank loan outstanding auto-calculates in the P&L (Step 3, H2): Interest = Loan Outstanding × Interest Rate (both from Section E). This is only an estimate (it assumes the outstanding balance stayed flat all year) — if you have the actual interest figure from the loan passbook, enter it in the override field and it'll be used instead. / एसएचजी व बैंक ऋण पर ब्याज स्वतः गणना होता है; यदि पासबुक में वास्तविक आंकड़ा उपलब्ध हो तो उसे override फ़ील्ड में भरें।" },
+  { k: ["interest on loan", "interest paid", "interest expense", "interest charged"], a: "Interest paid on SHG, Bank, Informal, and any Other Bank Loan/OD is a required MANUAL entry in the P&L (Step 3, H2) — it's not auto-calculated, because the real interest depends on the balance changing through the year (as EMIs are paid), not just the year-end outstanding figure. A rough 'Outstanding × Rate' reference is shown below each field, but please enter the actual amount from the passbook. If a loan is outstanding but this is left blank, Health Check will flag it. / एसएचजी, बैंक, अनौपचारिक व अन्य बैंक ऋण/ओडी पर ब्याज P&L में एक आवश्यक मैनुअल प्रविष्टि है — स्वतः गणना नहीं होती। खाली छोड़ने पर Health Check चेतावनी देगा।" },
   { k: ["daily sale", "monthly sale"], a: "Fill either one — whichever is easier for you. If you enter Daily Sale, Avg Monthly Sale is calculated automatically (shown in red). If Daily Sale is left blank, a direct Avg Monthly Sale field appears for you to fill instead. / जो भी आपके लिए आसान हो वह भरें। दैनिक बिक्री भरने पर औसत मासिक बिक्री स्वतः गणना होती है (लाल रंग में)। दैनिक बिक्री खाली छोड़ने पर सीधे औसत मासिक बिक्री भरने का विकल्प आता है।" },
   { k: ["growth", "projection", "growth rate"], a: "The growth % you enter for Year 2 and Year 3 projects how much Sales and Operating Expenditure might increase. A realistic rate is usually 10-20% for a stable small business — very high rates (40%+) make the projection unreliable, so keep it conservative unless there's a clear reason (like a big new loan-funded expansion) to expect faster growth. / वर्ष 2 व 3 के लिए भरी गई वृद्धि % यह दर्शाती है कि बिक्री व परिचालन व्यय कितना बढ़ सकता है। एक स्थिर छोटे व्यवसाय के लिए 10-20% यथार्थवादी है — बहुत अधिक दर (40%+) अनुमान को अविश्वसनीय बनाती है, इसलिए स्पष्ट कारण न हो तो सतर्क रहें।" },
   { k: ["household expense", "hh expense"], a: "Include housing/utilities, food & groceries, transport, education, medical, and social/festival expenses. Don't include business expenses here — those belong in the Financials step. / आवास/उपयोगिताएं, भोजन व किराना, परिवहन, शिक्षा, चिकित्सा व सामाजिक/त्योहार व्यय शामिल करें। यहां व्यावसायिक खर्च शामिल न करें — वे वित्तीय चरण में आते हैं।" },
@@ -653,12 +653,13 @@ function App() {
     low: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
     avg: { months: 6, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
   });
-  const [h2, setH2] = useState({ ...Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])), interestShgOverride: "", interestBankOverride: "", interestInformalOverride: "" });
+  const [h2, setH2] = useState({ ...Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])), interestShgOverride: "", interestBankOverride: "", interestInformalOverride: "", interestOtherBankOverride: "" });
   const [govtSubsidy, setGovtSubsidy] = useState("");
   const [openingStock, setOpeningStock] = useState("");
-  const [h3, setH3] = useState(
-    Object.fromEntries([...CL_FIELDS, ...LTL_FIELDS, ...CA_FIELDS, ...FA_FIELDS, ...OA_FIELDS].map((f) => [f.k, ""]))
-  );
+  const [h3, setH3] = useState({
+    ...Object.fromEntries([...CL_FIELDS, ...LTL_FIELDS, ...CA_FIELDS, ...FA_FIELDS, ...OA_FIELDS].map((f) => [f.k, ""])),
+    clBankLoanSTRate: "",
+  });
   const [drawings, setDrawings] = useState("");
 
   const [proj, setProj] = useState({ growthSalesY2: 20, growthSalesY3: 15, growthOpexY2: 15, growthOpexY3: 12, growthEmployeesY2: 50, growthEmployeesY3: 0 });
@@ -717,10 +718,15 @@ function App() {
     const interestShgAuto = num(credit.shgLoanOutstanding) * (num(credit.shgInterestRate) / 100);
     const interestBankAuto = num(credit.bankLoanOutstanding) * (num(credit.bankLoanInterestRate) / 100);
     const interestInformalAuto = num(credit.informalLoan) * (num(credit.informalLoanInterestRate) / 100);
-    const interestShgFinal = h2.interestShgOverride !== "" ? num(h2.interestShgOverride) : interestShgAuto;
-    const interestBankFinal = h2.interestBankOverride !== "" ? num(h2.interestBankOverride) : interestBankAuto;
-    const interestInformalFinal = h2.interestInformalOverride !== "" ? num(h2.interestInformalOverride) : interestInformalAuto;
-    const expenditureSum = sum(...H2_EXPENDITURE_FIELDS.map((f) => h2[f.k])) + interestShgFinal + interestBankFinal + interestInformalFinal;
+    const interestOtherBankAuto = num(h3.clBankLoanST) * (num(h3.clBankLoanSTRate) / 100);
+    // Interest paid is now a required MANUAL figure (the actual outstanding balance changes through the year as
+    // EMIs are paid, so "Outstanding × Rate" is only a rough estimate) — the auto figures above are shown as a
+    // reference only. If left blank, it's treated as ₹0 and Health Check flags it (loan outstanding, no interest entered).
+    const interestShgFinal = num(h2.interestShgOverride);
+    const interestBankFinal = num(h2.interestBankOverride);
+    const interestInformalFinal = num(h2.interestInformalOverride);
+    const interestOtherBankFinal = num(h2.interestOtherBankOverride);
+    const expenditureSum = sum(...H2_EXPENDITURE_FIELDS.map((f) => h2[f.k])) + interestShgFinal + interestBankFinal + interestInformalFinal + interestOtherBankFinal;
     const totalExpenditure = totalPurchases + expenditureSum;
     const totalIncome = totalSales + totalOtherIncome + num(govtSubsidy);
     const netProfit = totalIncome - totalExpenditure;
@@ -852,7 +858,7 @@ function App() {
       totalCL, totalLTL, totalCA, totalFA, totalOA, totalAssets, ownersCapital, totalNetWorth, totalLiabilities, balances,
       clOtherThanBankBorrowings, workingCapitalGap, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
       projectedTurnover, turnoverWcRequirement, turnoverMargin, turnoverBankFinance,
-      tlAmount, wcLoanAmount, totalProjectCost, totalLoanRequested, marginMoneyDerived, stockValueAuto, debtorsAuto, creditorsAuto, stockHoldingDays, debtorsDays, suppliersDays, interestShgAuto, interestBankAuto, interestInformalAuto, interestShgFinal, interestBankFinal, interestInformalFinal, moratoriumMonths, tlPrincipalAfterMoratorium,
+      tlAmount, wcLoanAmount, totalProjectCost, totalLoanRequested, marginMoneyDerived, stockValueAuto, debtorsAuto, creditorsAuto, stockHoldingDays, debtorsDays, suppliersDays, interestShgAuto, interestBankAuto, interestInformalAuto, interestOtherBankAuto, interestShgFinal, interestBankFinal, interestInformalFinal, interestOtherBankFinal, moratoriumMonths, tlPrincipalAfterMoratorium,
       salesY2, salesY3, opexY2, opexY3, purchasesY2, purchasesY3, netProfitY1, netProfitY2, netProfitY3, annualEmi,
       hhIncomeTotalWithBiz, hhExpTotal, householdSurplusAnnual, monthlyHHIncome, monthlyHHExpenditure, monthlyHouseholdSurplus,
       totalMonthlyEmi, netCashSurplusAfterAllEmis,
@@ -1164,10 +1170,10 @@ function App() {
       low: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
       avg: { months: 6, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
     });
-    setH2({ ...Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])), interestShgOverride: "", interestBankOverride: "", interestInformalOverride: "" });
+    setH2({ ...Object.fromEntries(H2_EXPENDITURE_FIELDS.map((f) => [f.k, ""])), interestShgOverride: "", interestBankOverride: "", interestInformalOverride: "", interestOtherBankOverride: "" });
     setGovtSubsidy("");
     setOpeningStock("");
-    setH3(Object.fromEntries([...CL_FIELDS, ...LTL_FIELDS, ...CA_FIELDS, ...FA_FIELDS, ...OA_FIELDS].map((f) => [f.k, ""])));
+    setH3({ ...Object.fromEntries([...CL_FIELDS, ...LTL_FIELDS, ...CA_FIELDS, ...FA_FIELDS, ...OA_FIELDS].map((f) => [f.k, ""])), clBankLoanSTRate: "" });
     setDrawings("");
     setProj({ growthSalesY2: 20, growthSalesY3: 15, growthOpexY2: 15, growthOpexY3: 12, growthEmployeesY2: 50, growthEmployeesY3: 0 });
     setK1(Object.fromEntries(K1_FIELDS.map((f) => [f.k, ""])));
@@ -1284,13 +1290,16 @@ function App() {
     }
 
     if (num(credit.shgLoanOutstanding) > 0 && calc.interestShgFinal === 0)
-      list.push({ tone: "danger", title: "SHG Loan outstanding but zero interest expense", detail: `SHG Loan Outstanding is ${inr(num(credit.shgLoanOutstanding))}, but Interest Rate on SHG Loan is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the SHG Loan interest rate in Section E (Step 2), or fill the actual interest paid from the SHG passbook directly in Step 3." });
+      list.push({ tone: "danger", title: "SHG Loan outstanding but no interest entered", detail: `SHG Loan Outstanding is ${inr(num(credit.shgLoanOutstanding))}, but Interest Paid to SHG in Step 3 (P&L) is blank/0.`, fix: "Fill the actual interest paid from the SHG passbook in Step 3 — this is a required manual entry, since it should reflect the real amount paid, not an estimate." });
 
     if (num(credit.bankLoanOutstanding) > 0 && calc.interestBankFinal === 0)
-      list.push({ tone: "danger", title: "Bank Loan outstanding but zero interest expense", detail: `Bank Loan Outstanding is ${inr(num(credit.bankLoanOutstanding))}, but Interest Rate on Bank Loan is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the Bank Loan interest rate in Section E (Step 2), or fill the actual interest paid from the bank passbook/statement directly in Step 3." });
+      list.push({ tone: "danger", title: "Bank Loan outstanding but no interest entered", detail: `Bank Loan Outstanding is ${inr(num(credit.bankLoanOutstanding))}, but Interest Paid on Bank Loan in Step 3 (P&L) is blank/0.`, fix: "Fill the actual interest paid from the bank passbook/statement in Step 3 — this is a required manual entry." });
 
     if (num(credit.informalLoan) > 0 && calc.interestInformalFinal === 0)
-      list.push({ tone: "danger", title: "Informal Loan outstanding but zero interest expense", detail: `Informal Loan is ${inr(num(credit.informalLoan))}, but its Interest Rate is blank/0, so no interest is being charged in the P&L (Step 3).`, fix: "Enter the interest rate on the informal loan in Section E (Step 2) if any is charged, or fill the actual amount paid directly in Step 3." });
+      list.push({ tone: "danger", title: "Informal Loan outstanding but no interest entered", detail: `Informal Loan is ${inr(num(credit.informalLoan))}, but Interest Paid on Informal Loan in Step 3 (P&L) is blank/0.`, fix: "Fill the actual interest amount paid in Step 3, if any is charged on this loan." });
+
+    if (num(h3.clBankLoanST) > 0 && calc.interestOtherBankFinal === 0)
+      list.push({ tone: "danger", title: "Other Bank Loan/OD outstanding (Balance Sheet) but no interest entered", detail: `Other Bank Loan/OD Outstanding in the Balance Sheet (Step 3) is ${inr(num(h3.clBankLoanST))}, but its Interest Paid in the P&L is blank/0.`, fix: "Fill the actual interest paid from the passbook for this loan in Step 3." });
 
     if (calc.totalFA > 0 && num(h2.depreciation) === 0)
       list.push({ tone: "warn", title: "Fixed assets present but zero depreciation charged", detail: `Total Fixed Assets in the Balance Sheet is ${inr(calc.totalFA)}, but Depreciation in Income & Expenditure (Step 3) is ₹0.`, fix: "Fixed assets like machinery, furniture, or vehicles normally lose value over time — add an estimated depreciation expense in Step 3, or confirm if these assets are genuinely non-depreciating (e.g. land)." });
@@ -1597,20 +1606,40 @@ function App() {
             <NumList fields={H2_EXPENDITURE_FIELDS} obj={h2} setObj={setH2} />
 
             <Banner tone="warn">
-              Interest below is auto-calculated (Outstanding × Rate) as an estimate only — it assumes the balance stayed flat all year. Please try to fill the actual interest paid from the loan passbook/statement wherever available; it will be more accurate than the estimate. / नीचे ब्याज अनुमानित है — कृपया जहां संभव हो पासबुक से वास्तविक ब्याज भरें, यह अधिक सटीक होगा।
+              Please fill the actual interest paid on each outstanding loan below, from the passbook/statement — this is a required manual entry, not auto-calculated, since the real figure depends on the balance through the year, not just the year-end outstanding amount. / कृपया प्रत्येक बकाया ऋण पर वास्तविक भुगतान किया गया ब्याज पासबुक से भरें — यह आवश्यक मैनुअल प्रविष्टि है, स्वतः गणना नहीं होती।
             </Banner>
-            <Field label="Interest Paid to SHG — fill actual figure from passbook if available" auto>
-              <NumInput value={h2.interestShgOverride} onChange={(v) => setH2({ ...h2, interestShgOverride: v })} />
-            </Field>
-            <p className="text-xs text-stone-600 -mt-2 mb-3">Auto-calculated (Outstanding × Rate): {inr(calc.interestShgAuto)} — used unless you enter an actual figure above.</p>
-            <Field label="Interest Paid on Bank Loan — fill actual figure from passbook if available" auto>
-              <NumInput value={h2.interestBankOverride} onChange={(v) => setH2({ ...h2, interestBankOverride: v })} />
-            </Field>
-            <p className="text-xs text-stone-600 -mt-2 mb-3">Auto-calculated (Outstanding × Rate): {inr(calc.interestBankAuto)} — used unless you enter an actual figure above.</p>
-            <Field label="Interest Paid on Informal Loan — fill actual figure if available" auto>
-              <NumInput value={h2.interestInformalOverride} onChange={(v) => setH2({ ...h2, interestInformalOverride: v })} />
-            </Field>
-            <p className="text-xs text-stone-600 -mt-2 mb-3">Auto-calculated (Outstanding × Rate): {inr(calc.interestInformalAuto)} — used unless you enter an actual figure above.</p>
+            {num(credit.shgLoanOutstanding) > 0 && (
+              <>
+                <Field label="Interest Paid to SHG (from passbook)" mandatory>
+                  <NumInput value={h2.interestShgOverride} onChange={(v) => setH2({ ...h2, interestShgOverride: v })} />
+                </Field>
+                <p className="text-xs text-stone-600 -mt-2 mb-3">Rough reference only (Outstanding × Rate): {inr(calc.interestShgAuto)} — this is not used automatically; please enter the actual figure above.</p>
+              </>
+            )}
+            {num(credit.bankLoanOutstanding) > 0 && (
+              <>
+                <Field label="Interest Paid on Bank Loan (from passbook/statement)" mandatory>
+                  <NumInput value={h2.interestBankOverride} onChange={(v) => setH2({ ...h2, interestBankOverride: v })} />
+                </Field>
+                <p className="text-xs text-stone-600 -mt-2 mb-3">Rough reference only (Outstanding × Rate): {inr(calc.interestBankAuto)} — this is not used automatically; please enter the actual figure above.</p>
+              </>
+            )}
+            {num(credit.informalLoan) > 0 && (
+              <>
+                <Field label="Interest Paid on Informal Loan (if any is charged)" mandatory>
+                  <NumInput value={h2.interestInformalOverride} onChange={(v) => setH2({ ...h2, interestInformalOverride: v })} />
+                </Field>
+                <p className="text-xs text-stone-600 -mt-2 mb-3">Rough reference only (Outstanding × Rate): {inr(calc.interestInformalAuto)} — this is not used automatically; please enter the actual figure above.</p>
+              </>
+            )}
+            {num(h3.clBankLoanST) > 0 && (
+              <>
+                <Field label="Interest Paid on Other Bank Loan/OD (Balance Sheet, from passbook)" mandatory>
+                  <NumInput value={h2.interestOtherBankOverride} onChange={(v) => setH2({ ...h2, interestOtherBankOverride: v })} />
+                </Field>
+                <p className="text-xs text-stone-600 -mt-2 mb-3">Rough reference only (Outstanding × Rate): {inr(calc.interestOtherBankAuto)} — this is not used automatically; please enter the actual figure above.</p>
+              </>
+            )}
             <Field label="Government Subsidy / Grant Received"><NumInput value={govtSubsidy} onChange={setGovtSubsidy} /></Field>
             {num(h2.wages) + num(h2.familyLabour) > calc.totalSales && calc.totalSales > 0 && (
               <Banner tone="warn">Some expenditure heads look high relative to sales — please double check.</Banner>
@@ -1637,6 +1666,11 @@ function App() {
                 { label: `Credit from Suppliers (auto, ${calc.suppliersDays} days)`, value: inr(calc.creditorsAuto) },
               ]}
             />
+            {num(h3.clBankLoanST) > 0 && (
+              <Field label="Interest Rate on Other Bank Loan/OD above (% p.a.) — needed so interest gets charged in the P&L" mandatory>
+                <NumInput prefix="%" value={h3.clBankLoanSTRate} onChange={(v) => setH3({ ...h3, clBankLoanSTRate: v })} />
+              </Field>
+            )}
 
             <p className="text-xs font-semibold text-stone-500 mb-1 mt-3">B. Long-Term Liabilities</p>
             <NumList

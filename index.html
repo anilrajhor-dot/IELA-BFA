@@ -287,14 +287,11 @@ const F1_FIELDS = [
 const F2_FIELDS = [
   { k: "wcPurpose", l: "Purpose of Working Capital Loan / कार्यशील पूंजी ऋण का उद्देश्य", type: "text" }, { k: "wcStockType", l: "Type of Raw Material / Stock / कच्चे माल / स्टॉक का प्रकार", type: "text" },
   { k: "wcCycleDays", l: "Total Working Capital Cycle (Days) / कुल कार्यशील पूंजी चक्र (दिन)", type: "number", prefix: "#", help: "Net cycle = Stock (fixed 60 days) + Debtors − Suppliers' Credit (fixed 7 days). Debtors is calculated automatically so the formula lands exactly on this total — e.g. 90 days gives Stock 60 + Debtors 37 − Suppliers 7. Default 90. / निवल चक्र = स्टॉक (स्थिर 60 दिन) + देनदार − आपूर्तिकर्ता उधार (स्थिर 7 दिन)। देनदार स्वतः गणना होता है।" },
-  { k: "totalWcRequired", l: "Cost of Material Purchased (for Working Capital) / कार्यशील पूंजी हेतु सामग्री लागत", type: "number" },
-  { k: "wcLoanAmount", l: "Working Capital Loan Amount = Cost − Margin 10% (auto-suggested) / कार्यशील पूंजी ऋण राशि", type: "number" },
 ];
 const F3_FIELDS = [
   { k: "tlPurpose", l: "Purpose of Term Loan / टर्म लोन का उद्देश्य", type: "text" }, { k: "assetDescription", l: "Description of Asset / परिसंपत्ति का विवरण", type: "text" },
   { k: "newOrReplacement", l: "New Purchase or Replacement? / नई खरीद या प्रतिस्थापन?", type: "select", opts: ["New Purchase", "Replacement"] },
   { k: "assetLife", l: "Estimated Life of Asset (Years) / परिसंपत्ति का अनुमानित जीवनकाल (वर्ष)", type: "number", prefix: "#" }, { k: "supplierName", l: "Supplier / Vendor Name and Location / आपूर्तिकर्ता / विक्रेता का नाम व स्थान", type: "text" },
-  { k: "quotedPrice", l: "Quoted Price of Asset / परिसंपत्ति का उद्धृत मूल्य", type: "number" }, { k: "tlAmount", l: "Term Loan Amount Requested / अनुरोधित टर्म लोन राशि", type: "number" },
   { k: "moratoriumMonths", l: "Moratorium Period (Months, before EMI starts) / अधिस्थगन अवधि (महीने, ईएमआई शुरू होने से पहले)", type: "number", prefix: "#", help: "A payment-free grace period BEFORE the first EMI is due (e.g. time to install/commission the asset) — this is IN ADDITION TO the Repayment Period below, not part of it. Total Loan Period = Moratorium + Repayment Period. Interest still accrues during the moratorium and gets added to the loan principal, so the EMI (once it starts) is calculated on a slightly higher amount. Leave 0 if there's no moratorium. / यह पहली ईएमआई से पहले की अतिरिक्त भुगतान-मुक्त अवधि है (पुनर्भुगतान अवधि से अलग)। कुल ऋण अवधि = अधिस्थगन + पुनर्भुगतान अवधि।" },
 ];
 
@@ -385,7 +382,7 @@ const CHAT_KB = [
   { k: ["working capital", "term loan", "wc vs", "difference between"], a: "Working Capital covers day-to-day running costs (stock, raw material) that get recovered as you sell — it's short-term and revolving. A Term Loan funds a one-time purchase like machinery or a shop asset, repaid over a fixed period. Fill F2 for Working Capital details and F3 for Term Loan details. / कार्यशील पूंजी दैनिक खर्चों (स्टॉक, कच्चा माल) को कवर करती है जो बिक्री से वसूल होते हैं — यह अल्पकालिक व घूर्णनशील है। टर्म लोन मशीनरी जैसी एकबारगी खरीद के लिए होता है, निश्चित अवधि में चुकाया जाता है। कार्यशील पूंजी के लिए F2 और टर्म लोन के लिए F3 भरें।" },
   { k: ["emi on working capital", "why no emi", "emi only on term"], a: "EMI is calculated only on the Term Loan, because Working Capital is a revolving facility (like an overdraft) with no fixed monthly installment — it's assessed separately using the Tandon Committee and Turnover methods in Step 3, not DSCR/FOIR. / ईएमआई केवल टर्म लोन पर गणना होती है; कार्यशील पूंजी की अलग से टंडन/टर्नओवर पद्धति से जांच होती है।" },
   { k: ["moratorium", "grace period", "repayment period include"], a: "Repayment Period (F3) is the EMI-paying period only — it does NOT include the Moratorium. Moratorium is a separate payment-free period before the first EMI. Total Loan Period = Moratorium + Repayment Period, shown automatically in F3. Interest still builds up during the moratorium and gets added to the loan before EMI is calculated. / पुनर्भुगतान अवधि में अधिस्थगन शामिल नहीं है — यह अलग है। कुल ऋण अवधि = अधिस्थगन + पुनर्भुगतान अवधि।" },
-  { k: ["margin money", "margin", "10%"], a: "Margin Money is the portion each loan's cost the applicant/SHG contributes themselves — usually a minimum of 10%. Enter Working Capital Required (F2) and Asset Cost (F3); the app auto-suggests each loan amount at 90% of its cost. Total Project Cost, Total Loan Requested, and Margin Money are then calculated automatically from these two, shown in the summary after F3. / मार्जिन मनी प्रत्येक ऋण की लागत का वह हिस्सा है जो आवेदक स्वयं देते हैं — आमतौर पर न्यूनतम 10%। F2 व F3 भरने पर कुल परियोजना लागत व ऋण राशि स्वतः गणना होती है।"},
+  { k: ["margin money", "margin", "10%"], a: "Margin Money (usually min. 10%) is the applicant's own contribution. The two loans work in opposite order: for Working Capital (F2), enter the Limit Required first — Cost of Material and Margin are derived automatically so Cost − Margin = Limit. For Term Loan (F3), enter the Quoted Price first — Margin and Loan Amount are derived so Loan = Price − Margin. Total Project Cost, Total Loan Requested, and overall Margin are then summarized after F3. / कार्यशील पूंजी में पहले सीमा भरें (लागत स्वतः बनती है); टर्म लोन में पहले लागत भरें (ऋण राशि स्वतः बनती है)।"},
   { k: ["material cost", "loan amount same", "quoted price"], a: "The Loan Amount should never equal the full cost of material or the asset being purchased — margin money has to come from the applicant. If you see a warning about this in Checks, it means the requested loan looks too close to the full cost. / ऋण राशि कभी भी सामग्री या परिसंपत्ति की पूरी लागत के बराबर नहीं होनी चाहिए — मार्जिन मनी आवेदक से आनी चाहिए। यदि Checks में इसकी चेतावनी दिखे, तो अनुरोधित ऋण पूरी लागत के बहुत करीब है।" },
   { k: ["balance sheet", "tally", "owner's capital", "owners capital"], a: "Owner's Capital = Total Assets − Total Liabilities other than capital. Because of this formula, the balance sheet always tallies by construction — Owner's Capital is the balancing figure. If it comes out negative, that's a real warning sign (liabilities exceed assets), which shows up in Checks. / स्वामी की पूंजी = कुल परिसंपत्ति − पूंजी के अलावा कुल देनदारियां। इस सूत्र के कारण तुलन पत्र हमेशा मेल खाता है — स्वामी की पूंजी संतुलन आंकड़ा है। यदि यह ऋणात्मक आए, तो यह वास्तविक चेतावनी है (देनदारियां परिसंपत्तियों से अधिक), जो Checks में दिखती है।" },
   { k: ["family labour", "family labor"], a: "Family Labour is the imputed value of unpaid work done by family members in the business — even though no wage is actually paid, it's still a real cost of running the business and should be estimated and included. / पारिवारिक श्रम, व्यवसाय में परिवार के सदस्यों द्वारा बिना वेतन किए गए कार्य का अनुमानित मूल्य है — भले ही कोई वेतन न दिया जाए, यह व्यवसाय चलाने की वास्तविक लागत है और इसे शामिल किया जाना चाहिए।" },
@@ -647,9 +644,9 @@ function App() {
   });
   const [wc, setWc] = useState({
     ...Object.fromEntries(F2_FIELDS.map((f) => [f.k, ""])),
-    wcCycleDays: 90,
+    wcCycleDays: 90, totalWcRequired: "", wcLoanAmount: "", marginPercent: 10,
   });
-  const [tl, setTl] = useState(Object.fromEntries(F3_FIELDS.map((f) => [f.k, ""])));
+  const [tl, setTl] = useState({ ...Object.fromEntries(F3_FIELDS.map((f) => [f.k, ""])), quotedPrice: "", tlAmount: "", marginPercent: 10 });
 
   const [h1, setH1] = useState({
     high: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
@@ -680,19 +677,21 @@ function App() {
     }
   }, [identity.district, identity.state]);
 
-  // Each sub-loan auto-suggests its own amount at 90% of its cost (10% margin) — Total Project Cost and Total Loan
-  // Requested are now derived automatically from these two, not entered separately (see calc below).
+  // Term Loan: Quoted Price is the source. Term Loan Amount = Price × (1 − Margin%), recalculated live whenever
+  // Price or Margin % changes — so if a bank later raises the margin requirement, the loan amount updates automatically.
   useEffect(() => {
-    if (tl.quotedPrice !== "" && tl.tlAmount === "") {
-      setTl((t) => (t.tlAmount !== "" ? t : { ...t, tlAmount: Math.round(num(t.quotedPrice) * 0.9) }));
+    if (tl.quotedPrice !== "") {
+      setTl((t) => ({ ...t, tlAmount: Math.round(num(t.quotedPrice) * (1 - num(t.marginPercent) / 100)) }));
     }
-  }, [tl.quotedPrice]);
+  }, [tl.quotedPrice, tl.marginPercent]);
 
+  // Working Capital: Limit Required is the source. Cost of Material = Limit ÷ (1 − Margin%), recalculated live
+  // whenever the Limit or Margin % changes, so Cost − Margin always ties back to the Limit exactly.
   useEffect(() => {
-    if (wc.totalWcRequired !== "" && wc.wcLoanAmount === "") {
-      setWc((w) => (w.wcLoanAmount !== "" ? w : { ...w, wcLoanAmount: Math.round(num(w.totalWcRequired) * 0.9) }));
+    if (wc.wcLoanAmount !== "") {
+      setWc((w) => ({ ...w, totalWcRequired: Math.round(num(w.wcLoanAmount) / (1 - num(w.marginPercent) / 100)) }));
     }
-  }, [wc.totalWcRequired]);
+  }, [wc.wcLoanAmount, wc.marginPercent]);
 
   // ---------------- calculations ----------------
   const calc = useMemo(() => {
@@ -1158,8 +1157,8 @@ function App() {
       totalProjectCost: "", marginMoney: "", loanRequested: "",
       ...Object.fromEntries(F1_FIELDS.map((f) => [f.k, f.k === "tenureMonths" ? 36 : f.k === "interestRate" ? 12 : ""])),
     });
-    setWc({ ...Object.fromEntries(F2_FIELDS.map((f) => [f.k, ""])), wcCycleDays: 90 });
-    setTl(Object.fromEntries(F3_FIELDS.map((f) => [f.k, ""])));
+    setWc({ ...Object.fromEntries(F2_FIELDS.map((f) => [f.k, ""])), wcCycleDays: 90, totalWcRequired: "", wcLoanAmount: "", marginPercent: 10 });
+    setTl({ ...Object.fromEntries(F3_FIELDS.map((f) => [f.k, ""])), quotedPrice: "", tlAmount: "", marginPercent: 10 });
     setH1({
       high: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
       low: { months: 3, dailySale: "", avgMonthlySaleManual: "", margin: "", otherInc: "" },
@@ -1318,10 +1317,10 @@ function App() {
       list.push({ tone: "danger", title: "Term Loan may not be repayable at any tenure", detail: "Safe EMI capacity is too low to ever cover interest on the requested Term Loan principal.", fix: "Reduce the Term Loan amount substantially, or grow business/household income before proceeding." });
 
     if (num(tl.quotedPrice) > 0 && calc.tlAmount >= num(tl.quotedPrice) * 0.98)
-      list.push({ tone: "warn", title: "Term Loan amount looks like the full asset cost", detail: `Term Loan requested ${inr(calc.tlAmount)} is almost equal to the asset cost of ${inr(num(tl.quotedPrice))}.`, fix: `Margin money (min. 10%) should come from the applicant. Term Loan should be Asset Cost − Margin ≈ ${inr(num(tl.quotedPrice) * 0.9)}, not the full cost.` });
+      list.push({ tone: "warn", title: "Term Loan amount looks like the full asset cost", detail: `Term Loan requested ${inr(calc.tlAmount)} is almost equal to the asset cost of ${inr(num(tl.quotedPrice))}.`, fix: `Margin money (currently set at ${num(tl.marginPercent)}%) should come from the applicant. Term Loan should be Asset Cost − Margin ≈ ${inr(num(tl.quotedPrice) * (1 - num(tl.marginPercent) / 100))}, not the full cost.` });
 
     if (num(wc.totalWcRequired) > 0 && calc.wcLoanAmount >= num(wc.totalWcRequired) * 0.98)
-      list.push({ tone: "warn", title: "Working Capital loan looks like the full requirement", detail: `WC loan requested ${inr(calc.wcLoanAmount)} is almost equal to the WC requirement of ${inr(num(wc.totalWcRequired))}.`, fix: `Margin money (min. 10%) should come from the applicant. WC Loan should be Requirement − Margin ≈ ${inr(num(wc.totalWcRequired) * 0.9)}, not the full amount.` });
+      list.push({ tone: "warn", title: "Working Capital loan looks like the full requirement", detail: `WC loan requested ${inr(calc.wcLoanAmount)} is almost equal to the WC requirement of ${inr(num(wc.totalWcRequired))}.`, fix: `Margin money (currently set at ${num(wc.marginPercent)}%) should come from the applicant. WC Loan should be Requirement − Margin ≈ ${inr(num(wc.totalWcRequired) * (1 - num(wc.marginPercent) / 100))}, not the full amount.` });
 
     const wcEligible = Math.max(calc.tandonMethod2Mpbf, calc.turnoverBankFinance);
     if (calc.wcLoanAmount > wcEligible && wcEligible > 0)
@@ -1462,6 +1461,18 @@ function App() {
 
             <SubHeading>F2. Working Capital Details / कार्यशील पूंजी विवरण (केवल WC ऋण हेतु)</SubHeading>
             <FieldGrid fields={F2_FIELDS} obj={wc} setObj={setWc} />
+            <Field label="Working Capital Limit Required / आवश्यक कार्यशील पूंजी सीमा" mandatory>
+              <NumInput value={wc.wcLoanAmount} onChange={(v) => setWc({ ...wc, wcLoanAmount: v })} />
+            </Field>
+            <Field label="Margin % (edit if the bank requires a different margin — default 10%) / मार्जिन % (बैंक द्वारा अलग मार्जिन की आवश्यकता होने पर बदलें)">
+              <NumInput prefix="%" value={wc.marginPercent} onChange={(v) => setWc({ ...wc, marginPercent: v })} />
+            </Field>
+            <Card>
+              <Row label="Margin Amount (auto)" value={inr(num(wc.totalWcRequired) - num(wc.wcLoanAmount))} auto last />
+            </Card>
+            <Field label="Cost of Material Purchased (auto = Limit ÷ (1 − Margin%), so Cost − Margin = Limit above)" auto>
+              <NumInput value={wc.totalWcRequired} onChange={(v) => setWc({ ...wc, totalWcRequired: v })} />
+            </Field>
             <Card title="Auto-split of the cycle above (used in Step 3 Balance Sheet)">
               <Row label="Stock Holding" value={`${calc.stockHoldingDays} days`} auto />
               <Row label="+ Debtors" value={`${calc.debtorsDays} days`} auto />
@@ -1471,6 +1482,18 @@ function App() {
 
             <SubHeading>F3. Term Loan Details / टर्म लोन विवरण (केवल TL ऋण हेतु)</SubHeading>
             <FieldGrid fields={F3_FIELDS} obj={tl} setObj={setTl} />
+            <Field label="Quoted Price of Asset / परिसंपत्ति का उद्धृत मूल्य" mandatory>
+              <NumInput value={tl.quotedPrice} onChange={(v) => setTl({ ...tl, quotedPrice: v })} />
+            </Field>
+            <Field label="Margin % (edit if the bank requires a different margin — default 10%) / मार्जिन % (बैंक द्वारा अलग मार्जिन की आवश्यकता होने पर बदलें)">
+              <NumInput prefix="%" value={tl.marginPercent} onChange={(v) => setTl({ ...tl, marginPercent: v })} />
+            </Field>
+            <Card>
+              <Row label="Margin Amount (auto)" value={inr(num(tl.quotedPrice) - num(tl.tlAmount))} auto last />
+            </Card>
+            <Field label="Term Loan Amount Requested = Quoted Price − Margin (auto-suggested, override if needed) / अनुरोधित टर्म लोन राशि" auto>
+              <NumInput value={tl.tlAmount} onChange={(v) => setTl({ ...tl, tlAmount: v })} />
+            </Field>
             <Field label="Repayment Period Requested (Months, EMI-paying period — EXCLUDING moratorium above) / अनुरोधित पुनर्भुगतान अवधि (केवल ईएमआई अवधि, अधिस्थगन को छोड़कर)"><NumInput prefix="#" value={loanF.tenureMonths} onChange={(v) => setLoanF({ ...loanF, tenureMonths: v })} /></Field>
             <Field label="Interest Rate Informed to Applicant (% p.a.) / आवेदक को बताई गई ब्याज दर (% वार्षिक)"><NumInput prefix="%" value={loanF.interestRate} onChange={(v) => setLoanF({ ...loanF, interestRate: v })} /></Field>
             <Field label="Proposed Monthly EMI (auto-suggested from PMT on Term Loan only, override if needed) / प्रस्तावित मासिक ईएमआई (केवल टर्म लोन पर, स्वतः सुझाई गई)" auto>

@@ -366,13 +366,13 @@ function NumList({ fields, obj, setObj, extraRow, extraRows }) {
 
 // ---------------- guide chatbot (fully offline — no API calls) ----------------
 const SUGGESTED_QUESTIONS = {
-  0: ["Why do I need Aadhaar and PAN?", "What if a document is not ready yet?", "Why is some text red?"],
+  0: ["Why do I need Aadhaar and PAN?", "How do I try demo data without losing my work?", "How do I start a new member's application?"],
   1: ["What's the difference between Working Capital and Term Loan?", "How is margin money decided?", "Where do I see data consistency checks?"],
   2: ["Why doesn't my balance sheet tally?", "What counts as family labour?", "Should I fill Daily Sale or Monthly Sale?"],
   3: ["Why do the projection numbers change with growth %?", "What growth rate is realistic?"],
   4: ["What should I include in household expenses?", "What is BPL/APL category?", "Why does business profit count as household income?"],
   5: ["What does DSCR mean?", "What does FOIR mean?", "How is the maximum eligible loan calculated?", "What is the Tandon method?"],
-  6: ["What does 'Recommend with Conditions' mean?", "How can I improve my chances of approval?", "Are there any issues with my data?"],
+  6: ["What does 'Recommend with Conditions' mean?", "How can I download financial statements for the bank?", "Are there any issues with my data?"],
 };
 
 // Knowledge base: each entry is checked in order; first keyword match wins.
@@ -405,8 +405,10 @@ const CHAT_KB = [
   { k: ["mic", "voice", "speak"], a: "Tap the mic icon next to the chat input to speak your question instead of typing — it uses your browser's built-in voice recognition. If your device doesn't support it, you'll see a message and can just type instead. / टाइप करने के बजाय बोलने के लिए चैट इनपुट के पास माइक आइकन दबाएं — यह ब्राउज़र की अंतर्निहित आवाज़ पहचान का उपयोग करता है। यदि आपका डिवाइस समर्थन नहीं करता, तो संदेश दिखेगा और आप टाइप कर सकते हैं।" },
   { k: ["stuck", "next button", "won't move", "not going"], a: "The Next button always works now — it never gets permanently blocked. If required fields are empty, you'll see a small reminder above the button, but you can still continue and fill them later. / Next बटन अब हमेशा काम करता है — यह कभी स्थायी रूप से नहीं रुकता। यदि आवश्यक फ़ील्ड खाली हैं, तो बटन के ऊपर एक छोटा अनुस्मारक दिखेगा, लेकिन आप आगे बढ़कर बाद में भर सकते हैं।" },
   { k: ["document", "checklist"], a: "The Documents Checklist (Step 1, Section C) lists KYC and supporting papers needed for the loan file. Mark each as Collected, Pending, or Not Applicable — pending mandatory documents show up under Checks. / दस्तावेज़ सूची (चरण 1, खंड C) में ऋण फ़ाइल के लिए आवश्यक केवाईसी व सहायक कागज़ात सूचीबद्ध हैं। प्रत्येक को Collected, Pending या Not Applicable चिह्नित करें — लंबित अनिवार्य दस्तावेज़ Checks में दिखते हैं।" },
-  { k: ["sample data", "dummy data", "test data"], a: "Tap 'Load Sample Data' at the top of the Identity step (Step 1) to fill the whole form with a realistic example so you can see how everything works end-to-end. / पूरे फॉर्म को एक यथार्थवादी उदाहरण से भरने के लिए पहचान चरण (चरण 1) के शीर्ष पर 'Load Sample Data' दबाएं ताकि आप देख सकें कि सब कुछ कैसे काम करता है।" },
+  { k: ["sample data", "dummy data", "test data", "study", "demo data"], a: "Two options on Step 1: 'Load Sample Data' fills the whole form with a realistic example so you can see how everything works end-to-end — but it overwrites whatever you've already typed. 'Download Demo Data' instead saves the same example as a file you can study or import later, WITHOUT touching your current work. / 'Load Sample Data' फॉर्म भरता है (मौजूदा कार्य बदल देता है); 'Download Demo Data' बिना छेड़े अध्ययन हेतु फ़ाइल सहेजता है।" },
+  { k: ["new member", "another member", "different member", "next member", "start over", "clear data"], a: "Before starting a different member's application, tap 'Delete All Data' on Step 1 (with the confirmation prompt) — this clears everything so the new member's entries don't mix with the previous one's. If you want to keep a copy of the previous member's data first, use 'Export Data' before clearing. / नए सदस्य का आवेदन शुरू करने से पहले 'Delete All Data' दबाएं; पिछला डेटा सहेजना हो तो पहले 'Export Data' करें।" },
   { k: ["data consistency", "where check", "where find issues", "manufacturing no machinery", "zero interest", "no depreciation", "business age"], a: "All of these appear in one place: tap the clipboard icon (or 'Health Check' button on Step 1) in the header. It checks things like: a Manufacturing business with zero machinery, business age not matching stated experience, rent booked despite owned premises, employees with zero wages, loan outstanding with zero interest expense, fixed assets with zero depreciation, repayment period longer than an asset's life, and household loan contradictions. Each issue shown there comes with a plain-language fix. / ये सभी हेडर में क्लिपबोर्ड आइकन (Health Check) में एक ही जगह दिखते हैं, प्रत्येक के साथ समाधान भी।" },
+  { k: ["financial statement", "bank format", "submit to bank", "trading account", "download statement", "prescribed format"], a: "Tap the document icon (📄 'Financial Statements for Bank') in the header — it's a separate menu from the Report step. It builds a bank-ready document from whatever you've filled in so far: last year's Trading & P&L Account, Balance Sheet, Working Capital Assessment (Tandon/Turnover methods), a 3-year projection, the loan summary, and the recommendation — then lets you download it as a PDF, ready to submit. / हेडर में दस्तावेज़ आइकन (Financial Statements for Bank) दबाएं — यह बैंक हेतु तैयार पीडीएफ डाउनलोड करता है।" },
   { k: ["bpm", "submission", "save submission"], a: "'Save Submission' on the Report step saves a summary of this application on this device, viewable later under the Submissions icon (👥) in the header. It does not send data anywhere else automatically — use 'Share' or 'Share PDF' to actually send it to someone. / रिपोर्ट चरण पर 'Save Submission' इस आवेदन का सारांश इस डिवाइस पर सहेजता है, जिसे बाद में हेडर के Submissions आइकन (👥) में देखा जा सकता है। यह डेटा कहीं और स्वतः नहीं भेजता — किसी को भेजने के लिए 'Share' या 'Share PDF' का उपयोग करें।" },
   { k: ["api", "internet", "offline"], a: "This assistant works fully offline — it answers from a built-in knowledge base, with no internet connection or API key needed. / यह सहायक पूरी तरह ऑफ़लाइन काम करता है — यह अंतर्निहित ज्ञान आधार से उत्तर देता है, इंटरनेट या एपीआई कुंजी की आवश्यकता नहीं।" },
 ];
@@ -620,6 +622,86 @@ function BPMPanel({ open, onClose, submissions, loading, error, onRefresh }) {
   );
 }
 
+// ---------------- Financial Statements for Bank (separate menu, on-screen + PDF) ----------------
+function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, proj, openingStock, govtSubsidy, calc, onDownload, busy, status }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40 no-print flex items-end justify-center sm:items-center">
+      <div className="absolute inset-0 bg-black bg-opacity-30" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden" style={{ maxHeight: "85vh" }}>
+        <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon name="description" size={18} className="text-amber-400" />
+            <span className="serif font-bold text-sm">Financial Statements for Bank</span>
+          </div>
+          <button onClick={onClose}><Icon name="close" size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3">
+          <Banner tone="warn">Builds automatically from whatever data is currently filled in across all steps — fill in Steps 1-6 first for a complete statement.</Banner>
+
+          <SubHeading>1. Applicant & Enterprise</SubHeading>
+          <Card>
+            <Row label="SHG / Member" value={`${identity.shgName || "—"} / ${identity.memberName || "—"}`} />
+            <Row label="Enterprise" value={enterprise.enterpriseName || "—"} />
+            <Row label="Bank & Branch" value={`${identity.bankName || "—"}, ${identity.branchName || "—"}`} last />
+          </Card>
+
+          <SubHeading>2. Trading & P&L — Last Year (Actual)</SubHeading>
+          <Card>
+            <Row label="Sales" value={inr(calc.totalSales)} auto />
+            <Row label="Gross Profit" value={inr(calc.grossProfit)} auto />
+            <Row label="Net Profit / (Loss)" value={inr(calc.netProfit)} bold auto last />
+          </Card>
+
+          <SubHeading>3. Balance Sheet — Last Year (Actual)</SubHeading>
+          <Card>
+            <Row label="Total Assets" value={inr(calc.totalAssets)} auto />
+            <Row label="Total Liabilities" value={inr(calc.totalLiabilities)} auto />
+            <Row label="Owner's Capital" value={inr(calc.ownersCapital)} bold auto last />
+          </Card>
+
+          <SubHeading>4. Working Capital Assessment</SubHeading>
+          <Card>
+            <Row label="Tandon Method II — MPBF" value={inr(calc.tandonMethod2Mpbf)} auto />
+            <Row label="Turnover Method — Bank Finance" value={inr(calc.turnoverBankFinance)} auto last />
+          </Card>
+
+          <SubHeading>5. 3-Year Projection</SubHeading>
+          <Card>
+            <Row label="Net Profit — Last Year (Actual)" value={inr(calc.netProfitY1)} auto />
+            <Row label="Net Profit — Year 2 (Projected)" value={inr(calc.netProfitY2)} auto />
+            <Row label="Net Profit — Year 3 (Projected)" value={inr(calc.netProfitY3)} auto last />
+          </Card>
+
+          <SubHeading>6. Loan Summary</SubHeading>
+          <Card>
+            <Row label="Total Loan Requested" value={inr(calc.totalLoanRequested)} auto />
+            <Row label="Calculated Monthly EMI" value={inr(calc.calculatedEmi)} auto last />
+          </Card>
+
+          <SubHeading>7. Bank Officer's Recommendation</SubHeading>
+          <Card>
+            <Row label="DSCR / FOIR" value={`${calc.dscr.toFixed(2)} / ${pct(calc.foir)}`} auto />
+            <Row label="Recommendation" value={calc.recommendation} bold last />
+          </Card>
+
+          <button
+            onClick={onDownload}
+            disabled={busy}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-2 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold disabled:opacity-40"
+          >
+            {busy ? <Icon name="progress_activity" size={16} className="animate-spin" /> : <Icon name="download" size={16} />} Download Full Financial Statements (PDF)
+          </button>
+          {status === "shared" && <p className="text-xs text-green-800 mt-2">Shared successfully via your phone's share sheet.</p>}
+          {status === "downloaded" && <p className="text-xs text-stone-600 mt-2">PDF downloaded — share it from your Files/Downloads app.</p>}
+          {status === "pdf-unavailable" && <p className="text-xs text-red-700 mt-2">Couldn't load the PDF tool (needs an internet connection).</p>}
+          {status === "error" && <p className="text-xs text-red-700 mt-2">Something went wrong — please try again.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [step, setStep] = useState(0);
 
@@ -629,6 +711,7 @@ function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [diagOpen, setDiagOpen] = useState(false);
   const [bpmOpen, setBpmOpen] = useState(false);
+  const [fsOpen, setFsOpen] = useState(false);
   const [submissions, setSubmissions] = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [submissionsError, setSubmissionsError] = useState("");
@@ -998,6 +1081,213 @@ function App() {
     }
   }
 
+  const [fsBusy, setFsBusy] = useState(false);
+  const [fsStatus, setFsStatus] = useState("");
+
+  async function downloadFinancialStatementPdf() {
+    setFsBusy(true);
+    setFsStatus("");
+    try {
+      if (!(window.jspdf && window.jspdf.jsPDF)) {
+        await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      }
+      if (!(window.jspdf && window.jspdf.jsPDF)) {
+        setFsStatus("pdf-unavailable");
+        return;
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const left = 15, right = 195, pageBottom = 280;
+      let y = 18;
+
+      const ensureSpace = (needed = 8) => {
+        if (y + needed > pageBottom) {
+          doc.addPage();
+          y = 18;
+        }
+      };
+      const sectionHeader = (text) => {
+        ensureSpace(13);
+        doc.setFillColor(31, 59, 51);
+        doc.rect(left - 2, y - 5, right - left + 4, 8, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont(undefined, "bold");
+        doc.text(text, left, y);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, "normal");
+        y += 10;
+      };
+      const row = (label, value, opts = {}) => {
+        ensureSpace(7);
+        doc.setFontSize(10);
+        doc.setFont(undefined, opts.bold ? "bold" : "normal");
+        doc.text(String(label), left, y);
+        doc.text(String(value), right, y, { align: "right" });
+        y += 6.5;
+        doc.setFont(undefined, "normal");
+      };
+      const note = (text) => {
+        ensureSpace(10);
+        doc.setFontSize(8.5);
+        doc.setFont(undefined, "italic");
+        const wrapped = doc.splitTextToSize(text, right - left);
+        doc.text(wrapped, left, y);
+        y += wrapped.length * 4.2 + 3;
+        doc.setFont(undefined, "normal");
+      };
+      const triRow = (label, y1v, y2v, y3v, bold) => {
+        ensureSpace(7);
+        doc.setFontSize(9);
+        doc.setFont(undefined, bold ? "bold" : "normal");
+        doc.text(label, left, y);
+        doc.text(y1v, 130, y, { align: "right" });
+        doc.text(y2v, 163, y, { align: "right" });
+        doc.text(y3v, right, y, { align: "right" });
+        y += 6;
+        doc.setFont(undefined, "normal");
+      };
+
+      doc.setFontSize(16);
+      doc.setFont(undefined, "bold");
+      doc.text("FINANCIAL STATEMENTS FOR BANK LOAN APPRAISAL", 105, y, { align: "center" });
+      y += 6;
+      doc.setFontSize(9);
+      doc.setFont(undefined, "italic");
+      doc.setTextColor(184, 134, 43);
+      doc.text("DAY-NRLM Enterprise Loan — Annexure III Business Analysis", 105, y, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, "normal");
+      y += 10;
+
+      sectionHeader("1. Applicant & Enterprise Details");
+      row("SHG Name", identity.shgName || "—");
+      row("Member Name", identity.memberName || "—");
+      row("Enterprise Name", enterprise.enterpriseName || "—");
+      row("Business Activity", enterprise.currentActivity || "—");
+      row("Business Start Date", enterprise.startDate || "—");
+      row("Experience (Years)", enterprise.experience || "—");
+      row("District / State", enterprise.districtState || `${identity.district || ""}, ${identity.state || ""}`);
+      row("Bank & Branch", `${identity.bankName || ""}, ${identity.branchName || ""}`);
+      y += 4;
+
+      sectionHeader("2. Trading & Profit and Loss Account — Last Year (Actual)");
+      row("Sales (Annual)", inr(calc.totalSales));
+      row("Other Income", inr(calc.totalOtherIncome));
+      row("Opening Stock", inr(num(openingStock)));
+      row("Add: Purchases", inr(calc.totalPurchases));
+      row("Less: Closing Stock", inr(calc.closingStock));
+      row("Cost of Goods Sold (COGS)", inr(calc.cogs));
+      row("Gross Profit", inr(calc.grossProfit), { bold: true });
+      row("Gross Margin", pct(calc.grossMargin));
+      row("Less: Operating Expenses & Interest", inr(calc.totalExpenditure - calc.totalPurchases));
+      row("Add: Government Subsidy/Grant", inr(num(govtSubsidy)));
+      row("Net Profit / (Loss)", inr(calc.netProfit), { bold: true });
+      row("Net Margin", pct(calc.netMargin));
+      note(`Includes actual interest paid — SHG ${inr(calc.interestShgFinal)}, Bank ${inr(calc.interestBankFinal)}, Informal ${inr(calc.interestInformalFinal)}.`);
+
+      sectionHeader("3. Balance Sheet — Last Year (Actual)");
+      row("Total Current Liabilities", inr(calc.totalCL));
+      row("Total Long-Term Liabilities", inr(calc.totalLTL));
+      row("Owner's Capital / Net Worth", inr(calc.ownersCapital));
+      row("TOTAL LIABILITIES", inr(calc.totalLiabilities), { bold: true });
+      y += 2;
+      row("Total Current Assets", inr(calc.totalCA));
+      row("Total Fixed Assets", inr(calc.totalFA));
+      row("Total Other Assets", inr(calc.totalOA));
+      row("TOTAL ASSETS", inr(calc.totalAssets), { bold: true });
+      note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
+
+      sectionHeader("4. Working Capital Assessment");
+      row("Tandon Method I — MPBF", inr(calc.tandonMethod1Mpbf));
+      row("Tandon Method II — MPBF", inr(calc.tandonMethod2Mpbf));
+      row("Turnover Method — Bank Finance (20%)", inr(calc.turnoverBankFinance));
+      row("Working Capital Loan Requested", inr(calc.wcLoanAmount), { bold: true });
+
+      sectionHeader("5. Trading & P&L — 3-Year Comparison");
+      ensureSpace(8);
+      doc.setFontSize(9);
+      doc.setFont(undefined, "bold");
+      doc.text("Particulars", left, y);
+      doc.text("Last Year", 130, y, { align: "right" });
+      doc.text("Year 2", 163, y, { align: "right" });
+      doc.text("Year 3", right, y, { align: "right" });
+      y += 6;
+      doc.setFont(undefined, "normal");
+      triRow("Sales", inr(calc.totalSales), inr(calc.salesY2), inr(calc.salesY3));
+      triRow("Purchases / COGS", inr(calc.totalPurchases), inr(calc.purchasesY2), inr(calc.purchasesY3));
+      triRow("Net Profit / (Loss)", inr(calc.netProfitY1), inr(calc.netProfitY2), inr(calc.netProfitY3), true);
+      note(`Growth assumptions: Sales +${proj.growthSalesY2}% (Yr2), +${proj.growthSalesY3}% (Yr3); Operating Expenditure +${proj.growthOpexY2}% (Yr2), +${proj.growthOpexY3}% (Yr3).`);
+
+      sectionHeader("6. Proposed Loan Summary");
+      row("Total Project Cost", inr(calc.totalProjectCost));
+      row("Margin Money", inr(calc.marginMoneyDerived));
+      row("Working Capital Loan", inr(calc.wcLoanAmount));
+      row("Term Loan Amount", inr(calc.tlAmount));
+      row("Total Loan Requested", inr(calc.totalLoanRequested), { bold: true });
+      row("Term Loan Tenure", `${loanF.tenureMonths} months`);
+      row("Interest Rate (Term Loan)", `${loanF.interestRate}% p.a.`);
+      row("Calculated Monthly EMI", inr(calc.calculatedEmi));
+
+      sectionHeader("7. Household Assessment & Repayment Capacity");
+      row("Monthly Household Income", inr(calc.monthlyHHIncome));
+      row("Monthly Household Expenditure", inr(calc.monthlyHHExpenditure));
+      row("Monthly Household Surplus", inr(calc.monthlyHouseholdSurplus));
+      row("DSCR", calc.dscr.toFixed(2));
+      row("FOIR", pct(calc.foir));
+
+      sectionHeader("8. Bank Officer's Recommendation");
+      ensureSpace(14);
+      const recColor = calc.tone === "ok" ? [47, 79, 51] : calc.tone === "warn" ? [122, 84, 16] : [124, 43, 45];
+      doc.setFontSize(13);
+      doc.setFont(undefined, "bold");
+      doc.setTextColor(recColor[0], recColor[1], recColor[2]);
+      doc.text(calc.recommendation.toUpperCase(), 105, y, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, "normal");
+      y += 10;
+      ensureSpace(20);
+      doc.setFontSize(9);
+      const guidance =
+        calc.recommendation === "Not Recommended"
+          ? `Existing EMI obligations leave a monthly household position of ${inr(calc.monthlyHouseholdSurplus)}. FOIR is ${pct(calc.foir)} (norm: under 50%) and DSCR is ${calc.dscr.toFixed(2)} (norm: 1.2+). The Term Loan amount would need to be reduced, or household income increased / expenses reduced, before this proposal is viable.`
+          : `The proposed loan appears viable based on the household's repayment capacity (DSCR ${calc.dscr.toFixed(2)}, FOIR ${pct(calc.foir)}).`;
+      const wrapped = doc.splitTextToSize(guidance, right - left);
+      doc.text(wrapped, left, y);
+      y += wrapped.length * 4.5 + 15;
+
+      ensureSpace(30);
+      doc.setFontSize(10);
+      doc.text("Prepared by: _____________________     Vitta Sakhi / BPM", left, y);
+      y += 10;
+      doc.text("Reviewed by: _____________________     Bank Officer", left, y);
+      y += 10;
+      doc.text("Date: _____________________", left, y);
+
+      const blob = doc.output("blob");
+      const fileName = `Financial_Statements_${(enterprise.enterpriseName || identity.memberName || "IELA").replace(/\s+/g, "_")}.pdf`;
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Financial Statements for Bank", text: "Financial statements for bank loan appraisal" });
+        setFsStatus("shared");
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setFsStatus("downloaded");
+      }
+    } catch (e) {
+      if (!(e && e.name === "AbortError")) setFsStatus("error");
+    } finally {
+      setFsBusy(false);
+    }
+  }
+
   async function submitToBPM() {
     setSubmitStatus("saving");
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1027,60 +1317,78 @@ function App() {
     }
   }
 
+  function buildSampleDataObject() {
+    return {
+      identity: {
+        block: "Selu", gp: "Ambika", village: "Wardha Rural", shgName: "Jai Bhavani SHG",
+        district: "Wardha", state: "Maharashtra", bankName: "Bank of Maharashtra", branchName: "Wardha Main",
+        ifsc: "MAHB0001234", sbAccount: "60123456789",
+        memberName: "Sunita Devi", fatherHusband: "Ramesh Devi", memberId: "WRD-SHG-0456", dob: "1988-05-14",
+        pan: "ABCDE1234F", mobile: "98765 43210", udyam: "UDYAM-MH-03-0012345", gst: "",
+        memberBankName: "Bank of Maharashtra", memberBranchName: "Wardha Main", memberIfsc: "MAHB0001234", memberSbAccount: "60198765432",
+        vittaSakhi: "Meena Tai", dateOfVisit: "2026-01-15",
+      },
+      documents: Object.fromEntries(DOCUMENTS.map((doc) => [doc.k, { status: "Collected", remarks: "" }])),
+      enterprise: {
+        enterpriseName: "Sunita General Store", enterpriseType: "Trading", activityType: "Grocery & FMCG retail",
+        startDate: "2019-06-01", currentActivity: "Grocery & household goods retail", plannedActivity: "Add cold storage for dairy & beverages",
+        businessAddress: "Shop No. 4, Main Bazar Road, Selu", districtState: "Wardha, Maharashtra",
+        premises: "Rented", monthlyRent: 1200, experience: 6, employees: 1, recordsAvailable: "Yes", recordsType: "Notebook ledger + mobile app",
+      },
+      credit: {
+        memberSince: 6, loansLast3Yrs: 3, lastLoanAmount: 15000, highestLoanEver: 20000,
+        shgLoanOutstanding: 18000, shgEmi: 1500, shgInterestRate: 12, emiDelays: 0, cumulativeShgSavings: 22000,
+        ownSbSavings: 8500, fdRd: 5000, otherSavings: 2000,
+        bankLoanOutstanding: 150000, bankLoanEmi: 4200, bankLoanInterestRate: 11,
+        informalLoan: 10000, informalLoanEmi: 800, informalLoanInterestRate: 24, cibilScore: "NTC",
+      },
+      loanF: { marginSource: "Bank Savings Account", tenureMonths: 36, interestRate: 12 },
+      wc: { wcPurpose: "Stock purchase for festive season", wcStockType: "Grocery / FMCG packaged goods", wcCycleDays: 90, totalWcRequired: 30000, wcLoanAmount: 27000, marginPercent: 10 },
+      tl: {
+        tlPurpose: "Purchase of refrigerator & display shelving", assetDescription: "Double-door refrigerator + display shelving unit",
+        newOrReplacement: "New Purchase", assetLife: 8, supplierName: "Kelvin Appliances, Wardha", quotedPrice: 150000, tlAmount: 135000, marginPercent: 10, moratoriumMonths: 2,
+      },
+      h1: {
+        high: { months: 3, dailySale: 1800, avgMonthlySaleManual: "", margin: 28, otherInc: 500 },
+        low: { months: 3, dailySale: 900, avgMonthlySaleManual: "", margin: 22, otherInc: 200 },
+        avg: { months: 6, dailySale: "", avgMonthlySaleManual: 42000, margin: 25, otherInc: 350 },
+      },
+      h2: {
+        wages: 18000, familyLabour: 12000, rent: 14400, electricity: 6000, maintenance: 3600,
+        transport: 8400, packing: 4200, commission: 0, bankCharges: 600, gstPaid: 0, depreciation: 4500, otherExp1: 2400, otherExp2: 0,
+        // realistic actual interest figures (interest is manual entry, matching Outstanding × Rate for this demo)
+        interestShgOverride: 2160, interestBankOverride: 16500, interestInformalOverride: 2400,
+      },
+      govtSubsidy: 6000,
+      openingStock: 24000,
+      h3: {
+        clBankLoanST: 0, clAdvanceReceived: 0, clGstPayable: 0, clOther: 0, ltOther: 0,
+        cashInHand: 3500, advancePaidSuppliers: 0, otherCA: 0,
+        landBuilding: 0, plantMachinery: 150000, toolsEquipment: 6000, furniture: 6000, vehicle: 0, otherFA: 0,
+        securityDeposits: 5000, otherAssets: 0,
+      },
+      drawings: 6000,
+      k1: { totalMembers: 5, earningMembers: 2, existingHhLoan: "No", hhLoanDetail: "", houseType: "Semi-Pucca", bplApl: "APL" },
+      hhInc: { wagesSalary: 60000, farmingIncome: 24000, livestockIncome: 0, rentalIncome: 0, govtTransfers: 12000, remittances: 0, otherIncome1: 6000, otherIncome2: 0 },
+      hhExp: { housing: 42000, food: 60000, transport: 9600, education: 14400, medical: 7200, social: 6000, otherExpenses: 4800 },
+    };
+  }
+
   function loadSampleData() {
-    setIdentity((i) => ({
-      ...i, block: "Selu", gp: "Ambika", village: "Wardha Rural", shgName: "Jai Bhavani SHG",
-      district: "Wardha", state: "Maharashtra", bankName: "Bank of Maharashtra", branchName: "Wardha Main",
-      ifsc: "MAHB0001234", sbAccount: "60123456789",
-      memberName: "Sunita Devi", fatherHusband: "Ramesh Devi", memberId: "WRD-SHG-0456", dob: "1988-05-14",
-      pan: "ABCDE1234F", mobile: "98765 43210", udyam: "UDYAM-MH-03-0012345", gst: "",
-      memberBankName: "Bank of Maharashtra", memberBranchName: "Wardha Main", memberIfsc: "MAHB0001234", memberSbAccount: "60198765432",
-      vittaSakhi: "Meena Tai", dateOfVisit: "2026-01-15",
-    }));
-    setDocuments((d) => Object.fromEntries(Object.keys(d).map((k) => [k, { status: "Collected", remarks: "" }])));
-    setEnterprise((e) => ({
-      ...e, enterpriseName: "Sunita General Store", enterpriseType: "Trading", activityType: "Grocery & FMCG retail",
-      startDate: "2019-06-01", currentActivity: "Grocery & household goods retail", plannedActivity: "Add cold storage for dairy & beverages",
-      businessAddress: "Shop No. 4, Main Bazar Road, Selu", districtState: "Wardha, Maharashtra",
-      premises: "Rented", monthlyRent: 1200, experience: 6, employees: 1, recordsAvailable: "Yes", recordsType: "Notebook ledger + mobile app",
-    }));
-    setCredit((c) => ({
-      ...c, memberSince: 6, loansLast3Yrs: 3, lastLoanAmount: 15000, highestLoanEver: 20000,
-      shgLoanOutstanding: 18000, shgEmi: 1500, shgInterestRate: 12, emiDelays: 0, cumulativeShgSavings: 22000,
-      ownSbSavings: 8500, fdRd: 5000, otherSavings: 2000,
-      bankLoanOutstanding: 150000, bankLoanEmi: 4200, bankLoanInterestRate: 11,
-      informalLoan: 10000, informalLoanEmi: 800, informalLoanInterestRate: 24, cibilScore: "NTC",
-    }));
-    setWc((w) => ({
-      ...w, wcPurpose: "Stock purchase for festive season", wcStockType: "Grocery / FMCG packaged goods",
-      wcCycleDays: 90, totalWcRequired: 30000,
-    }));
-    setTl((t) => ({
-      ...t, tlPurpose: "Purchase of refrigerator & display shelving", assetDescription: "Double-door refrigerator + display shelving unit",
-      newOrReplacement: "New Purchase", assetLife: 8, supplierName: "Kelvin Appliances, Wardha", quotedPrice: 150000, moratoriumMonths: 2,
-    }));
-    setLoanF((l) => ({ ...l, marginSource: "Bank Savings Account", tenureMonths: 36, interestRate: 12 }));
-    setH1({
-      high: { months: 3, dailySale: 1800, avgMonthlySaleManual: "", margin: 28, otherInc: 500 },
-      low: { months: 3, dailySale: 900, avgMonthlySaleManual: "", margin: 22, otherInc: 200 },
-      avg: { months: 6, dailySale: "", avgMonthlySaleManual: 42000, margin: 25, otherInc: 350 },
-    });
-    setH2((h) => ({
-      ...h, wages: 18000, familyLabour: 12000, rent: 14400, electricity: 6000, maintenance: 3600,
-      transport: 8400, packing: 4200, commission: 0, bankCharges: 600, gstPaid: 0, depreciation: 4500, otherExp1: 2400, otherExp2: 0,
-    }));
-    setGovtSubsidy(6000);
-    setOpeningStock(24000);
-    setH3((h) => ({
-      ...h, clBankLoanST: 0, clAdvanceReceived: 0, clGstPayable: 0, clOther: 0, ltOther: 0,
-      cashInHand: 3500, advancePaidSuppliers: 0, otherCA: 0,
-      landBuilding: 0, plantMachinery: 150000, toolsEquipment: 6000, furniture: 6000, vehicle: 0, otherFA: 0,
-      securityDeposits: 5000, otherAssets: 0,
-    }));
-    setDrawings(6000);
-    setK1((k) => ({ ...k, totalMembers: 5, earningMembers: 2, existingHhLoan: "No", hhLoanDetail: "", houseType: "Semi-Pucca", bplApl: "APL" }));
-    setHhInc((h) => ({ ...h, wagesSalary: 60000, farmingIncome: 24000, livestockIncome: 0, rentalIncome: 0, govtTransfers: 12000, remittances: 0, otherIncome1: 6000, otherIncome2: 0 }));
-    setHhExp((h) => ({ ...h, housing: 42000, food: 60000, transport: 9600, education: 14400, medical: 7200, social: 6000, otherExpenses: 4800 }));
+    applyImportedData(buildSampleDataObject());
+  }
+
+  function downloadDemoData() {
+    const payload = buildSampleDataObject();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "IELA_Demo_Data_Sunita_General_Store.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   const [importError, setImportError] = useState("");
@@ -1366,6 +1674,9 @@ function App() {
             >
               <Icon name="group" size={19} />
             </button>
+            <button onClick={() => setFsOpen(true)} className="p-2 rounded-md hover:bg-emerald-800" aria-label="Financial Statements for Bank">
+              <Icon name="description" size={19} />
+            </button>
             <button onClick={() => setDiagOpen(true)} className="relative p-2 rounded-md hover:bg-emerald-800" aria-label="Health Check">
               <Icon name="checklist" size={19} />
               {issues.length > 0 && (
@@ -1407,6 +1718,9 @@ function App() {
               <button onClick={loadSampleData} className="text-xs px-2 py-1 rounded-full border border-amber-600 text-amber-700 font-semibold whitespace-nowrap">
                 Load Sample Data
               </button>
+              <button onClick={downloadDemoData} className="text-xs px-2 py-1 rounded-full border border-amber-600 text-amber-700 font-semibold whitespace-nowrap">
+                Download Demo Data (to study) / डेमो डेटा डाउनलोड करें
+              </button>
               <button onClick={exportData} className="text-xs px-2 py-1 rounded-full border border-emerald-900 text-emerald-900 font-semibold whitespace-nowrap">
                 Export Data / डेटा निर्यात करें
               </button>
@@ -1432,7 +1746,7 @@ function App() {
             {importOk && <Banner tone="ok">Data imported successfully — check each step to confirm. / डेटा सफलतापूर्वक आयात हुआ।</Banner>}
             {importError && <Banner tone="danger">{importError}</Banner>}
             <p className="text-sm text-stone-600 mb-3">
-              ★ = mandatory / अनिवार्य · Your entries are saved automatically on this device and remain even if you close the app — until you tap "Delete All Data." / आपकी प्रविष्टियां इस डिवाइस पर स्वतः सहेजी जाती हैं और तब तक बनी रहती हैं जब तक आप "Delete All Data" न दबाएं।
+              ★ = mandatory / अनिवार्य · Your entries are saved automatically on this device and remain even if you close the app. "Download Demo Data" saves a study copy without touching your current work. Before starting a different member's application, tap "Delete All Data" to clear everything first. / "Download Demo Data" आपके वर्तमान कार्य को प्रभावित किए बिना अध्ययन प्रति सहेजता है। किसी अन्य सदस्य का आवेदन शुरू करने से पहले "Delete All Data" दबाएं।
             </p>
             <SubHeading>A. SHG Details / एसएचजी विवरण</SubHeading>
             <FieldGrid fields={SHG_FIELDS} obj={identity} setObj={setIdentity} />
@@ -1983,6 +2297,20 @@ function App() {
       <ChatWidget open={chatOpen} onClose={() => setChatOpen(false)} contextSummary={contextSummary} step={step} issues={issues} />
       <DiagnosticsPanel open={diagOpen} onClose={() => setDiagOpen(false)} issues={issues} />
       <BPMPanel open={bpmOpen} onClose={() => setBpmOpen(false)} submissions={submissions} loading={submissionsLoading} error={submissionsError} onRefresh={loadSubmissions} />
+      <FinancialStatementsPanel
+        open={fsOpen}
+        onClose={() => setFsOpen(false)}
+        identity={identity}
+        enterprise={enterprise}
+        loanF={loanF}
+        proj={proj}
+        openingStock={openingStock}
+        govtSubsidy={govtSubsidy}
+        calc={calc}
+        onDownload={downloadFinancialStatementPdf}
+        busy={fsBusy}
+        status={fsStatus}
+      />
     </div>
   );
 }

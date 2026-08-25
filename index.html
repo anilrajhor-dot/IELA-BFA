@@ -2283,7 +2283,7 @@ function App() {
 
         {step === 6 && (
           <>
-            <Report identity={identity} enterprise={enterprise} credit={credit} loanF={loanF} wc={wc} tl={tl} calc={calc} />
+            <Report identity={identity} enterprise={enterprise} credit={credit} loanF={loanF} wc={wc} tl={tl} openingStock={openingStock} govtSubsidy={govtSubsidy} proj={proj} calc={calc} />
             <div className="mt-4 no-print space-y-2">
               <div className="flex gap-2">
                 <button onClick={shareAsText} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-emerald-900 text-emerald-900 text-sm font-semibold">
@@ -2379,62 +2379,110 @@ function Stamp({ recommendation, tone }) {
   );
 }
 
-function Report({ identity, enterprise, credit, loanF, wc, tl, calc }) {
+function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, govtSubsidy, proj, calc }) {
   return (
     <div className="print-area bg-white border border-stone-300 rounded-lg p-5 shadow-sm">
       <div className="text-center mb-4">
-        <p className="text-xs tracking-widest text-stone-500 uppercase">Business Analysis & Bank Loan Assessment Report</p>
+        <p className="text-xs tracking-widest text-stone-500 uppercase">Financial Statements for Bank Loan Appraisal</p>
         <h2 className="serif text-lg font-bold mt-1">{enterprise.enterpriseName || "Enterprise Name"}</h2>
         <p className="text-xs text-stone-600">{identity.memberName} · {identity.shgName}</p>
+        <p className="text-xs text-amber-700 italic mt-0.5">DAY-NRLM Enterprise Loan — Annexure III Business Analysis</p>
       </div>
 
-      <SubHeading>1. Applicant Details / आवेदक विवरण</SubHeading>
+      <SubHeading>1. Applicant & Enterprise Details / आवेदक व उद्यम विवरण</SubHeading>
+      <Row label="SHG / Member" value={`${identity.shgName || "—"} / ${identity.memberName || "—"}`} />
+      <Row label="Enterprise" value={enterprise.enterpriseName || "—"} />
       <Row label="Business Activity" value={enterprise.currentActivity || "—"} />
+      <Row label="Business Start Date" value={enterprise.startDate || "—"} />
       <Row label="Experience" value={`${enterprise.experience || 0} yrs`} />
-      <Row label="Existing Bank" value={identity.bankName || "—"} />
-      <Row label="Existing SHG Loan Outstanding" value={inr(num(credit.shgLoanOutstanding))} last />
+      <Row label="Bank & Branch" value={`${identity.bankName || "—"}, ${identity.branchName || "—"}`} last />
 
-      <SubHeading>2. Business Performance / व्यवसाय प्रदर्शन</SubHeading>
-      <Row label="Annual Sales" value={inr(calc.totalSales)} auto />
+      <SubHeading>2. Trading & P&L Account — Last Year (Actual) / व्यापार व लाभ-हानि खाता (पिछला वर्ष)</SubHeading>
+      <Row label="Sales (Annual)" value={inr(calc.totalSales)} auto />
+      <Row label="Other Income" value={inr(calc.totalOtherIncome)} auto />
+      <Row label="Opening Stock" value={inr(num(openingStock))} />
+      <Row label="Add: Purchases" value={inr(calc.totalPurchases)} auto />
+      <Row label="Less: Closing Stock" value={inr(calc.closingStock)} auto />
       <Row label="Cost of Goods Sold (COGS)" value={inr(calc.cogs)} auto />
-      <Row label="Gross Profit" value={inr(calc.grossProfit)} auto />
+      <Row label="Gross Profit" value={inr(calc.grossProfit)} bold auto />
       <Row label="Gross Margin" value={pct(calc.grossMargin)} auto />
-      <Row label="Net Profit" value={inr(calc.netProfit)} auto />
-      <Row label="Net Margin" value={pct(calc.netMargin)} />
-      <Row label="Avg Monthly Net Profit" value={inr(calc.avgMonthlyNetProfit)} last auto />
+      <Row label="Less: Operating Expenses & Interest" value={inr(calc.totalExpenditure - calc.totalPurchases)} auto />
+      <Row label="Add: Government Subsidy/Grant" value={inr(num(govtSubsidy))} />
+      <Row label="Net Profit / (Loss)" value={inr(calc.netProfit)} bold auto />
+      <Row label="Net Margin" value={pct(calc.netMargin)} last auto />
+      <p className="text-xs text-stone-500 italic mt-1 mb-2">Includes actual interest paid — SHG {inr(calc.interestShgFinal)}, Bank {inr(calc.interestBankFinal)}, Informal {inr(calc.interestInformalFinal)}.</p>
 
-      <SubHeading>3. Household Assessment / पारिवारिक मूल्यांकन</SubHeading>
-      <Row label="Monthly Household Income" value={inr(calc.monthlyHHIncome)} />
-      <Row label="Monthly Household Expenditure" value={inr(calc.monthlyHHExpenditure)} />
-      <Row label="Monthly Household Surplus" value={inr(calc.monthlyHouseholdSurplus)} last auto />
+      <SubHeading>3. Balance Sheet — Last Year (Actual) / तुलन पत्र (पिछला वर्ष)</SubHeading>
+      <Row label="Total Current Liabilities" value={inr(calc.totalCL)} auto />
+      <Row label="Total Long-Term Liabilities" value={inr(calc.totalLTL)} auto />
+      <Row label="Owner's Capital / Net Worth" value={inr(calc.ownersCapital)} auto />
+      <Row label="TOTAL LIABILITIES" value={inr(calc.totalLiabilities)} bold auto />
+      <Row label="Total Current Assets" value={inr(calc.totalCA)} auto />
+      <Row label="Total Fixed Assets" value={inr(calc.totalFA)} auto />
+      <Row label="Total Other Assets" value={inr(calc.totalOA)} auto />
+      <Row label="TOTAL ASSETS" value={inr(calc.totalAssets)} bold auto last />
+      <p className="text-xs text-stone-500 italic mt-1 mb-2">Balance Sheet tallies: Assets {inr(calc.totalAssets)} = Liabilities {inr(calc.totalLiabilities)}.</p>
 
-      <SubHeading>4. Proposed Investment / प्रस्तावित निवेश</SubHeading>
-      <Row label="Working Capital Purpose" value={wc.wcPurpose || "—"} />
-      <Row label="Term Loan Purpose" value={tl.tlPurpose || "—"} />
-      <Row label="Total Project Cost" value={inr(calc.totalProjectCost)} auto />
-      <Row label="Margin Money" value={inr(calc.marginMoneyDerived)} auto />
-      <Row label="Working Capital Loan Amount" value={inr(calc.wcLoanAmount)} auto />
-      <Row label="Term Loan Amount" value={inr(calc.tlAmount)} auto />
-      <Row label="Total Loan Requested" value={inr(calc.totalLoanRequested)} bold last auto />
-
-      <SubHeading>5. Bank Credit Analysis / बैंक ऋण विश्लेषण</SubHeading>
-      <Row label="Safe EMI Capacity" value={inr(calc.safeEmiCapacity)} auto />
-      <Row label="Calculated Monthly EMI" value={inr(calc.calculatedEmi)} auto />
-      <Row label="DSCR" value={calc.dscr.toFixed(2)} auto />
-      <Row label="DSCR-Based Eligibility (1.5+ recommended)" value={calc.dscrLabel} bold auto />
-      <Row label="FOIR" value={pct(calc.foir)} auto />
-      <Row label="Maximum Eligible Loan" value={inr(calc.maxEligibleLoan)} last auto />
-
-      <SubHeading>5a. Working Capital Assessment / कार्यशील पूंजी मूल्यांकन</SubHeading>
+      <SubHeading>4. Working Capital Assessment / कार्यशील पूंजी मूल्यांकन</SubHeading>
+      <Row label="Projected Annual Turnover (Year 2)" value={inr(calc.projectedTurnover)} auto />
+      <Row label="— Working Capital Requirement (25%)" value={inr(calc.turnoverWcRequirement)} auto />
+      <Row label="— Borrower's Margin (5%)" value={inr(calc.turnoverMargin)} auto />
+      <Row label="— Bank Finance (20%)" value={inr(calc.turnoverBankFinance)} bold auto />
       <Row label="Tandon Method I — MPBF" value={inr(calc.tandonMethod1Mpbf)} auto />
       <Row label="Tandon Method II — MPBF" value={inr(calc.tandonMethod2Mpbf)} auto />
-      <Row label="Turnover Method — Bank Finance (20% of turnover)" value={inr(calc.turnoverBankFinance)} last auto />
-      <Row label="Owner's Capital" value={inr(calc.ownersCapital)} last />
+      <Row label="Working Capital / CC Requested" value={inr(calc.wcLoanAmount)} />
+      <Row label="Recommended Working Capital / CC Limit" value={inr(calc.recommendedWc)} bold auto last />
+      <p className="text-xs text-stone-500 italic mt-1 mb-2">
+        {calc.wcWasReduced
+          ? `Reduced from ${inr(calc.wcLoanAmount)} requested to ${inr(calc.recommendedWc)} — capped at the higher of Tandon Method II (${inr(calc.tandonMethod2Mpbf)}) and the Turnover Method (${inr(calc.turnoverBankFinance)}).`
+          : `The full amount requested (${inr(calc.wcLoanAmount)}) is within the assessed eligibility.`}
+      </p>
 
-      <SubHeading>6. Bank Officer's Decision / बैंक अधिकारी का निर्णय</SubHeading>
+      <SubHeading>5. Trading & P&L — 3-Year Comparison / 3-वर्षीय तुलना</SubHeading>
+      <div className="overflow-x-auto -mx-1">
+        <table className="w-full text-xs border-collapse min-w-[420px]">
+          <thead>
+            <tr className="bg-emerald-900 text-stone-50">
+              <th className="text-left px-2 py-1.5 font-semibold">Particulars</th>
+              <th className="text-right px-2 py-1.5 font-semibold">Last Year</th>
+              <th className="text-right px-2 py-1.5 font-semibold">Year 2</th>
+              <th className="text-right px-2 py-1.5 font-semibold">Year 3</th>
+            </tr>
+          </thead>
+          <tbody className="text-stone-800">
+            <tr className="border-b border-stone-200"><td className="px-2 py-1.5">Sales</td><td className="text-right px-2 py-1.5 font-mono">{inr(calc.totalSales)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.salesY2)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.salesY3)}</td></tr>
+            <tr className="border-b border-stone-200"><td className="px-2 py-1.5">Purchases / COGS</td><td className="text-right px-2 py-1.5 font-mono">{inr(calc.totalPurchases)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.purchasesY2)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.purchasesY3)}</td></tr>
+            <tr className="border-b border-stone-200 font-semibold"><td className="px-2 py-1.5">Net Profit / (Loss)</td><td className="text-right px-2 py-1.5 font-mono">{inr(calc.netProfitY1)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.netProfitY2)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.netProfitY3)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-stone-500 italic mt-1 mb-2">Growth assumptions: Sales +{proj.growthSalesY2}% (Yr2), +{proj.growthSalesY3}% (Yr3); Opex +{proj.growthOpexY2}% (Yr2), +{proj.growthOpexY3}% (Yr3).</p>
+
+      <SubHeading>6. Proposed Loan Summary / प्रस्तावित ऋण सारांश</SubHeading>
+      <Row label="Total Project Cost" value={inr(calc.totalProjectCost)} auto />
+      <Row label="Margin Money" value={inr(calc.marginMoneyDerived)} auto />
+      <Row label="Working Capital Loan Requested" value={inr(calc.wcLoanAmount)} />
+      <Row label="Term Loan Amount Requested" value={inr(calc.tlAmount)} />
+      <Row label="Total Loan Requested" value={inr(calc.totalLoanRequested)} bold auto />
+      <Row label="Term Loan Tenure" value={`${loanF.tenureMonths} months`} />
+      <Row label="Interest Rate (Term Loan)" value={`${loanF.interestRate}% p.a.`} />
+      <Row label="Recommended Term Loan" value={inr(calc.recommendedTermLoan)} bold auto />
+      <Row label="EMI on Recommended Term Loan" value={inr(pmt(calc.recommendedTermLoan, loanF.interestRate, loanF.tenureMonths))} last auto />
+      <p className="text-xs text-stone-500 italic mt-1 mb-2">
+        {calc.termLoanWasReduced
+          ? `Reduced from ${inr(calc.tlAmount)} requested to ${inr(calc.recommendedTermLoan)} — the maximum the household's repayment capacity supports (DSCR up to 1.5 is the recommended threshold).`
+          : `The full amount requested (${inr(calc.tlAmount)}) is within the assessed eligibility.`}
+      </p>
+
+      <SubHeading>7. Household Assessment & Repayment Capacity / पारिवारिक मूल्यांकन</SubHeading>
+      <Row label="Monthly Household Income (incl. Year 2 projected business profit)" value={inr(calc.monthlyHHIncome)} />
+      <Row label="Monthly Household Expenditure" value={inr(calc.monthlyHHExpenditure)} />
+      <Row label="Monthly Household Surplus" value={inr(calc.monthlyHouseholdSurplus)} auto />
+      <Row label="DSCR (Debt Service Coverage Ratio)" value={`${calc.dscr.toFixed(2)} — ${calc.dscrLabel}`} bold auto />
+      <Row label="FOIR (Fixed Obligation to Income Ratio)" value={pct(calc.foir)} last auto />
+
+      <SubHeading>8. Bank Officer's Recommendation / बैंक अधिकारी की सिफारिश</SubHeading>
       <div className="my-4"><Stamp recommendation={calc.recommendation} tone={calc.tone} /></div>
-
-      <SubHeading>7. AI Guidance / एआई मार्गदर्शन</SubHeading>
       <ul className="text-sm space-y-1.5 list-disc pl-4 text-stone-800">
         {calc.netProfit >= 0 ? (
           <li>Your business generates a net profit of {inr(calc.netProfit)} a year, supporting repayment capacity.</li>
@@ -2443,7 +2491,6 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, calc }) {
         )}
         {calc.ownersCapital < 0 && <li>Owner's capital works out negative — liabilities other than capital exceed total assets; treat this report as provisional until resolved.</li>}
         {calc.monthlyHouseholdSurplus < 0 && <li>Household expenses currently exceed income; reducing expenses will improve eligibility.</li>}
-
         <li>
           <span className="font-semibold">Recommended Term Loan: {inr(calc.recommendedTermLoan)}</span>
           {calc.termLoanWasReduced ? ` (requested ${inr(calc.tlAmount)}, reduced to fit repayment capacity — DSCR/EMI eligibility).` : " (matches the amount requested)."}
@@ -2455,9 +2502,12 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, calc }) {
         {calc.recommendation === "Not Recommended" && calc.recommendedTermLoan <= 0 && calc.minTenureMonths && calc.minTenureMonths <= 60 && (
           <li>Alternative: extending the repayment period to about {calc.minTenureMonths} months (within the 60-month maximum) could make a Term Loan viable at the current EMI capacity — editable on Step 2 if the applicant agrees.</li>
         )}
-        <li>Expected monthly EMI on the recommended Term Loan: {inr(pmt(calc.recommendedTermLoan, loanF.interestRate, loanF.tenureMonths))}.</li>
-        <li>FOIR is {pct(calc.foir)} — {calc.foir <= 50 ? "within acceptable banking norms." : "above typical banking comfort levels (50%)."} DSCR is {calc.dscr.toFixed(2)} — {calc.dscrLabel}.</li>
+        <li>FOIR is {pct(calc.foir)} — {calc.foir <= 50 ? "within acceptable banking norms." : "above typical banking comfort levels (50%)."}</li>
       </ul>
+
+      <p className="text-xs text-stone-600 mt-6">Prepared by: _____________________&nbsp;&nbsp;&nbsp;Vitta Sakhi / BPM</p>
+      <p className="text-xs text-stone-600 mt-2">Reviewed by: _____________________&nbsp;&nbsp;&nbsp;Bank Officer</p>
+      <p className="text-xs text-stone-600 mt-2">Date: _____________________</p>
       <p className="text-center text-xs text-stone-400 mt-6 pt-3 border-t border-stone-200">Developed by Anil Sharma, former General Manager, Central Bank of India</p>
     </div>
   );

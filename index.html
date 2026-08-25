@@ -2481,8 +2481,11 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
       <Row label="DSCR (Debt Service Coverage Ratio)" value={`${calc.dscr.toFixed(2)} — ${calc.dscrLabel}`} bold auto />
       <Row label="FOIR (Fixed Obligation to Income Ratio)" value={pct(calc.foir)} last auto />
 
-      <SubHeading>8. Bank Officer's Recommendation / बैंक अधिकारी की सिफारिश</SubHeading>
+      <SubHeading>Proposed Facilities / प्रस्तावित सुविधाएं</SubHeading>
       <div className="my-4"><Stamp recommendation={calc.recommendation} tone={calc.tone} /></div>
+      <p className="text-sm font-semibold text-stone-800 mb-2">
+        Proposed facilities:- Term Loan {inr(calc.recommendedTermLoan)}&nbsp;&nbsp;&nbsp;Cash Credit {inr(calc.recommendedWc)}
+      </p>
       <ul className="text-sm space-y-1.5 list-disc pl-4 text-stone-800">
         {calc.netProfit >= 0 ? (
           <li>Your business generates a net profit of {inr(calc.netProfit)} a year, supporting repayment capacity.</li>

@@ -2482,7 +2482,6 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
       <Row label="FOIR (Fixed Obligation to Income Ratio)" value={pct(calc.foir)} last auto />
 
       <SubHeading>Proposed Facilities / प्रस्तावित सुविधाएं</SubHeading>
-      <div className="my-4"><Stamp recommendation={calc.recommendation} tone={calc.tone} /></div>
       <p className="text-sm font-semibold text-stone-800 mb-2">
         Proposed facilities:- Term Loan {inr(calc.recommendedTermLoan)}&nbsp;&nbsp;&nbsp;Cash Credit {inr(calc.recommendedWc)}
       </p>

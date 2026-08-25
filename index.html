@@ -663,8 +663,12 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
 
           <SubHeading>4. Working Capital Assessment</SubHeading>
           <Card>
+            <Row label="Projected Turnover (Year 2)" value={inr(calc.projectedTurnover)} auto />
+            <Row label="WC Requirement (25%)" value={inr(calc.turnoverWcRequirement)} auto />
+            <Row label="Margin (5%)" value={inr(calc.turnoverMargin)} auto />
+            <Row label="Turnover Method — Bank Finance (20%)" value={inr(calc.turnoverBankFinance)} auto />
             <Row label="Tandon Method II — MPBF" value={inr(calc.tandonMethod2Mpbf)} auto />
-            <Row label="Turnover Method — Bank Finance" value={inr(calc.turnoverBankFinance)} auto last />
+            <Row label="Recommended Working Capital / CC" value={inr(calc.recommendedWc)} bold auto last />
           </Card>
 
           <SubHeading>5. 3-Year Projection</SubHeading>
@@ -677,7 +681,8 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
           <SubHeading>6. Loan Summary</SubHeading>
           <Card>
             <Row label="Total Loan Requested" value={inr(calc.totalLoanRequested)} auto />
-            <Row label="Calculated Monthly EMI" value={inr(calc.calculatedEmi)} auto last />
+            <Row label="Recommended Term Loan" value={inr(calc.recommendedTermLoan)} bold auto />
+            <Row label="EMI on Recommended Term Loan" value={inr(pmt(calc.recommendedTermLoan, loanF.interestRate, loanF.tenureMonths))} auto last />
           </Card>
 
           <SubHeading>7. Bank Officer's Recommendation</SubHeading>
@@ -1225,10 +1230,21 @@ function App() {
       note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
 
       sectionHeader("4. Working Capital Assessment");
-      row("Tandon Method I — MPBF", inr(calc.tandonMethod1Mpbf));
-      row("Tandon Method II — MPBF", inr(calc.tandonMethod2Mpbf));
-      row("Turnover Method — Bank Finance (20%)", inr(calc.turnoverBankFinance));
-      row("Working Capital Loan Requested", inr(calc.wcLoanAmount), { bold: true });
+      row("Projected Annual Turnover (Year 2)", inr(calc.projectedTurnover));
+      row("— Working Capital Requirement (25% of turnover)", inr(calc.turnoverWcRequirement));
+      row("— Borrower's Margin (5% of turnover)", inr(calc.turnoverMargin));
+      row("— Bank Finance (20% of turnover)", inr(calc.turnoverBankFinance), { bold: true });
+      note("Turnover Method (Nayak Committee): Working Capital Requirement (25%) = Bank Finance (20%) + Borrower's Margin (5%). Based on Year 2 projected turnover, not last year's actual — the loan is repaid from expected future business, not the past.");
+      row("Tandon Committee Method I — MPBF", inr(calc.tandonMethod1Mpbf));
+      row("Tandon Committee Method II — MPBF", inr(calc.tandonMethod2Mpbf));
+      y += 2;
+      row("Working Capital / CC Requested", inr(calc.wcLoanAmount));
+      row("Recommended Working Capital / CC Limit", inr(calc.recommendedWc), { bold: true });
+      note(
+        calc.wcWasReduced
+          ? `Reduced from the ${inr(calc.wcLoanAmount)} requested to ${inr(calc.recommendedWc)} — the ceiling from the higher of Tandon Method II (${inr(calc.tandonMethod2Mpbf)}) and the Turnover Method (${inr(calc.turnoverBankFinance)}).`
+          : `The full amount requested (${inr(calc.wcLoanAmount)}) is within the assessed eligibility.`
+      );
 
       sectionHeader("5. Trading & P&L — 3-Year Comparison");
       ensureSpace(8);
@@ -1248,12 +1264,19 @@ function App() {
       sectionHeader("6. Proposed Loan Summary");
       row("Total Project Cost", inr(calc.totalProjectCost));
       row("Margin Money", inr(calc.marginMoneyDerived));
-      row("Working Capital Loan", inr(calc.wcLoanAmount));
-      row("Term Loan Amount", inr(calc.tlAmount));
+      row("Working Capital Loan Requested", inr(calc.wcLoanAmount));
+      row("Term Loan Amount Requested", inr(calc.tlAmount));
       row("Total Loan Requested", inr(calc.totalLoanRequested), { bold: true });
       row("Term Loan Tenure", `${loanF.tenureMonths} months`);
       row("Interest Rate (Term Loan)", `${loanF.interestRate}% p.a.`);
-      row("Calculated Monthly EMI", inr(calc.calculatedEmi));
+      y += 2;
+      row("Recommended Term Loan", inr(calc.recommendedTermLoan), { bold: true });
+      row("EMI on Recommended Term Loan", inr(pmt(calc.recommendedTermLoan, loanF.interestRate, loanF.tenureMonths)));
+      note(
+        calc.termLoanWasReduced
+          ? `Reduced from the ${inr(calc.tlAmount)} requested to ${inr(calc.recommendedTermLoan)} — the maximum the household's repayment capacity supports (DSCR up to 1.5, Max Eligible Loan ${inr(calc.maxEligibleLoan)}).`
+          : `The full amount requested (${inr(calc.tlAmount)}) is within the assessed eligibility.`
+      );
 
       sectionHeader("7. Household Assessment & Repayment Capacity");
       row("Monthly Household Income", inr(calc.monthlyHHIncome));

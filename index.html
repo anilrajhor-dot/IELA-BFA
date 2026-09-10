@@ -286,7 +286,7 @@ const F1_FIELDS = [
 ];
 const F2_FIELDS = [
   { k: "wcPurpose", l: "Purpose of Working Capital Loan / कार्यशील पूंजी ऋण का उद्देश्य", type: "text" }, { k: "wcStockType", l: "Type of Raw Material / Stock / कच्चे माल / स्टॉक का प्रकार", type: "text" },
-  { k: "wcCycleDays", l: "Total Working Capital Cycle (Days) / कुल कार्यशील पूंजी चक्र (दिन)", type: "number", prefix: "#", help: "Net cycle = Stock (fixed 60 days) + Debtors − Suppliers' Credit (fixed 7 days). Debtors is calculated automatically so the formula lands exactly on this total — e.g. 90 days gives Stock 60 + Debtors 37 − Suppliers 7. Default 90. / निवल चक्र = स्टॉक (स्थिर 60 दिन) + देनदार − आपूर्तिकर्ता उधार (स्थिर 7 दिन)। देनदार स्वतः गणना होता है।" },
+  { k: "wcCycleDays", l: "Total Working Capital Cycle (Days) / कुल कार्यशील पूंजी चक्र (दिन)", type: "number", prefix: "#", help: "Net cycle = Stock + Debtors − Suppliers' Credit. The split between Stock/Debtors/Suppliers is set automatically based on Type of Enterprise (Step 2) — Trading turns stock over fast, Manufacturing holds Raw Material/WIP/Finished Goods longer, Services holds little stock. Debtors is the residual so the total always matches exactly. Default 90. / निवल चक्र = स्टॉक + देनदार − आपूर्तिकर्ता उधार। विभाजन उद्यम के प्रकार पर आधारित है।" },
 ];
 const F3_FIELDS = [
   { k: "tlPurpose", l: "Purpose of Term Loan / टर्म लोन का उद्देश्य", type: "text" }, { k: "assetDescription", l: "Description of Asset / परिसंपत्ति का विवरण", type: "text" },
@@ -318,6 +318,23 @@ const FA_FIELDS = [
   { k: "furniture", l: "Furniture & Fixtures / फर्नीचर व फिक्सचर" }, { k: "vehicle", l: "Two-Wheeler / Delivery Vehicle / दोपहिया / डिलीवरी वाहन" }, { k: "otherFA", l: "Other Fixed Assets / अन्य स्थायी परिसंपत्तियां" },
 ];
 const OA_FIELDS = [{ k: "securityDeposits", l: "Security Deposits Paid / जमा की गई सुरक्षा राशि" }, { k: "otherAssets", l: "Other Assets / अन्य परिसंपत्तियां" }];
+
+// How the Working Capital Cycle (Stock + Debtors − Suppliers' Credit) splits by business type — a Trading
+// business turns stock over quickly and sells mostly for cash; Manufacturing holds Raw Material + WIP + Finished
+// Goods for longer; Services barely holds stock and waits mainly on debtor payments. Stock % and Suppliers % of
+// the total cycle are fixed per type; Debtors is always the residual so the net formula stays exact.
+const HOLDING_COMPOSITION = {
+  Trading: { stockFrac: 0.55, suppliersFrac: 0.08 },
+  Manufacturing: { stockFrac: 0.70, suppliersFrac: 0.06 },
+  Services: { stockFrac: 0.10, suppliersFrac: 0.05 },
+};
+function holdingComposition(enterpriseType, totalDays) {
+  const comp = HOLDING_COMPOSITION[enterpriseType] || HOLDING_COMPOSITION.Trading;
+  const stockHoldingDays = Math.round(totalDays * comp.stockFrac);
+  const suppliersDays = Math.round(totalDays * comp.suppliersFrac);
+  const debtorsDays = totalDays - stockHoldingDays + suppliersDays;
+  return { stockHoldingDays, suppliersDays, debtorsDays };
+}
 
 const K1_FIELDS = [
   { k: "totalMembers", l: "Total Family Members / कुल पारिवारिक सदस्य", type: "number", prefix: "#" }, { k: "earningMembers", l: "Earning Members / कमाने वाले सदस्य", type: "number", prefix: "#" },
@@ -387,7 +404,7 @@ const CHAT_KB = [
   { k: ["balance sheet", "tally", "owner's capital", "owners capital"], a: "Owner's Capital = Total Assets − Total Liabilities other than capital. Because of this formula, the balance sheet always tallies by construction — Owner's Capital is the balancing figure. If it comes out negative, that's a real warning sign (liabilities exceed assets), which shows up in Checks. / स्वामी की पूंजी = कुल परिसंपत्ति − पूंजी के अलावा कुल देनदारियां। इस सूत्र के कारण तुलन पत्र हमेशा मेल खाता है — स्वामी की पूंजी संतुलन आंकड़ा है। यदि यह ऋणात्मक आए, तो यह वास्तविक चेतावनी है (देनदारियां परिसंपत्तियों से अधिक), जो Checks में दिखती है।" },
   { k: ["family labour", "family labor"], a: "Family Labour is the imputed value of unpaid work done by family members in the business — even though no wage is actually paid, it's still a real cost of running the business and should be estimated and included. / पारिवारिक श्रम, व्यवसाय में परिवार के सदस्यों द्वारा बिना वेतन किए गए कार्य का अनुमानित मूल्य है — भले ही कोई वेतन न दिया जाए, यह व्यवसाय चलाने की वास्तविक लागत है और इसे शामिल किया जाना चाहिए।" },
   { k: ["opening stock", "closing stock", "cogs", "cost of goods sold"], a: "Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. Opening Stock is what you had at the start of the year (enter it in Step 3); Closing Stock is now auto-calculated from the Stock Holding Period set in Step 2 (F2), so you don't enter it manually. This gives a more accurate Gross Profit than just Sales − Purchases. / बेची गई वस्तुओं की लागत (COGS) = प्रारंभिक स्टॉक + खरीद − अंतिम स्टॉक। अंतिम स्टॉक अब स्टॉक धारण अवधि से स्वतः गणना होता है।" },
-  { k: ["holding period", "stock holding", "debtors period", "suppliers credit period", "working capital cycle", "60 days", "37 days", "90 days"], a: "Just enter one number in F2 (Step 2): Total Working Capital Cycle (default 90 days). The net formula is Stock (fixed 60 days) + Debtors − Suppliers' Credit (fixed 7 days) = your total. Debtors is calculated automatically to make this exact — e.g. a 90-day cycle gives Stock 60 + Debtors 37 − Suppliers 7. These then calculate Stock, Debtors, and Credit from Suppliers in the Balance Sheet. / F2 में केवल एक अंक भरें: कुल कार्यशील पूंजी चक्र (डिफ़ॉल्ट 90 दिन)। सूत्र: स्टॉक (स्थिर 60) + देनदार − आपूर्तिकर्ता (स्थिर 7) = कुल।" },
+  { k: ["holding period", "stock holding", "debtors period", "suppliers credit period", "working capital cycle", "business type", "90 days"], a: "Just enter one number in F2 (Step 2): Total Working Capital Cycle (default 90 days). The net formula is Stock + Debtors − Suppliers' Credit = your total. How that splits depends on the Type of Enterprise you chose in Step 2 — Trading turns stock over fastest, Manufacturing holds Raw Material/WIP/Finished Goods longest, Services barely holds stock and waits mainly on debtors. Debtors is always the residual, so the total is always exact. / F2 में केवल एक अंक भरें: कुल कार्यशील पूंजी चक्र (डिफ़ॉल्ट 90 दिन)। विभाजन उद्यम के प्रकार पर निर्भर है — ट्रेडिंग, मैन्युफैक्चरिंग या सेवा।" },
   { k: ["interest on loan", "interest paid", "interest expense", "interest charged"], a: "Interest paid on SHG, Bank, Informal, and any Other Bank Loan/OD is a required MANUAL entry in the P&L (Step 3, H2) — it's not auto-calculated, because the real interest depends on the balance changing through the year (as EMIs are paid), not just the year-end outstanding figure. A rough 'Outstanding × Rate' reference is shown below each field, but please enter the actual amount from the passbook. If a loan is outstanding but this is left blank, Health Check will flag it. / एसएचजी, बैंक, अनौपचारिक व अन्य बैंक ऋण/ओडी पर ब्याज P&L में एक आवश्यक मैनुअल प्रविष्टि है — स्वतः गणना नहीं होती। खाली छोड़ने पर Health Check चेतावनी देगा।" },
   { k: ["daily sale", "monthly sale"], a: "Fill either one — whichever is easier for you. If you enter Daily Sale, Avg Monthly Sale is calculated automatically (shown in red). If Daily Sale is left blank, a direct Avg Monthly Sale field appears for you to fill instead. / जो भी आपके लिए आसान हो वह भरें। दैनिक बिक्री भरने पर औसत मासिक बिक्री स्वतः गणना होती है (लाल रंग में)। दैनिक बिक्री खाली छोड़ने पर सीधे औसत मासिक बिक्री भरने का विकल्प आता है।" },
   { k: ["growth", "projection", "growth rate"], a: "The growth % you enter for Year 2 and Year 3 projects how much Sales and Operating Expenditure might increase. A realistic rate is usually 10-20% for a stable small business — very high rates (40%+) make the projection unreliable, so keep it conservative unless there's a clear reason (like a big new loan-funded expansion) to expect faster growth. / वर्ष 2 व 3 के लिए भरी गई वृद्धि % यह दर्शाती है कि बिक्री व परिचालन व्यय कितना बढ़ सकता है। एक स्थिर छोटे व्यवसाय के लिए 10-20% यथार्थवादी है — बहुत अधिक दर (40%+) अनुमान को अविश्वसनीय बनाती है, इसलिए स्पष्ट कारण न हो तो सतर्क रहें।" },
@@ -627,17 +644,17 @@ function BPMPanel({ open, onClose, submissions, loading, error, onRefresh }) {
 function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, proj, openingStock, govtSubsidy, calc, onDownload, busy, status }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40 no-print flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black bg-opacity-30" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden" style={{ maxHeight: "85vh" }}>
-        <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between">
+    <div className="fixed inset-0 z-40 fs-print-fix flex items-end justify-center sm:items-center">
+      <div className="absolute inset-0 bg-black bg-opacity-30 no-print" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden fs-print-fix print-area" style={{ maxHeight: "85vh" }}>
+        <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between no-print">
           <div className="flex items-center gap-2">
             <Icon name="description" size={18} className="text-amber-400" />
             <span className="serif font-bold text-sm">Financial Statements for Bank</span>
           </div>
           <button onClick={onClose}><Icon name="close" size={18} /></button>
         </div>
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-3 fs-print-fix">
           <Banner tone="warn">Builds automatically from whatever data is currently filled in across all steps — fill in Steps 1-6 first for a complete statement.</Banner>
 
           <SubHeading>1. Applicant & Enterprise</SubHeading>
@@ -693,17 +710,25 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
             <Row label="Overall Recommendation" value={calc.recommendation} bold last />
           </Card>
 
-          <button
-            onClick={onDownload}
-            disabled={busy}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-2 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold disabled:opacity-40"
-          >
-            {busy ? <Icon name="progress_activity" size={16} className="animate-spin" /> : <Icon name="download" size={16} />} Download Full Financial Statements (PDF)
-          </button>
-          {status === "shared" && <p className="text-xs text-green-800 mt-2">Shared successfully via your phone's share sheet.</p>}
-          {status === "downloaded" && <p className="text-xs text-stone-600 mt-2">PDF downloaded — share it from your Files/Downloads app.</p>}
-          {status === "pdf-unavailable" && <p className="text-xs text-red-700 mt-2">Couldn't load the PDF tool (needs an internet connection).</p>}
-          {status === "error" && <p className="text-xs text-red-700 mt-2">Something went wrong — please try again.</p>}
+          <div className="no-print grid grid-cols-2 gap-2 mt-2">
+            <button
+              onClick={onDownload}
+              disabled={busy}
+              className="flex items-center justify-center gap-2 px-3 py-3 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold disabled:opacity-40"
+            >
+              {busy ? <Icon name="progress_activity" size={16} className="animate-spin" /> : <Icon name="download" size={16} />} Share / Download PDF
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center justify-center gap-2 px-3 py-3 rounded-md border border-emerald-900 text-emerald-900 text-sm font-semibold"
+            >
+              <Icon name="print" size={16} /> Print
+            </button>
+          </div>
+          {status === "shared" && <p className="text-xs text-green-800 mt-2 no-print">Shared successfully via your phone's share sheet.</p>}
+          {status === "downloaded" && <p className="text-xs text-stone-600 mt-2 no-print">PDF downloaded — share it from your Files/Downloads app.</p>}
+          {status === "pdf-unavailable" && <p className="text-xs text-red-700 mt-2 no-print">Couldn't load the PDF tool (needs an internet connection).</p>}
+          {status === "error" && <p className="text-xs text-red-700 mt-2 no-print">Something went wrong — please try again.</p>}
         </div>
       </div>
     </div>
@@ -825,13 +850,12 @@ function App() {
 
     // Holding-period-based auto-calculation (standard operating-cycle method): value = (annual flow ÷ 365) × holding days.
     // The single "Total Working Capital Cycle" (F2) is the NET operating cycle: Stock + Debtors − Suppliers' Credit
-    // (supplier credit finances part of the cycle, so it's subtracted, not added). Stock Holding (60 days) and
-    // Suppliers' Credit (7 days) are standard fixed assumptions; Debtors is the residual that makes the net formula
-    // land exactly on the total entered — e.g. a 90-day cycle gives Stock 60 + Debtors 37 − Suppliers 7 = 90.
+    // (supplier credit finances part of the cycle, so it's subtracted, not added). How those days split between
+    // Stock, Debtors, and Suppliers' Credit depends on the Type of Enterprise (Step 2) — a Trading business turns
+    // stock over fast, Manufacturing holds RM/WIP/FG longer, Services barely holds stock at all. Debtors is always
+    // the residual so the net formula lands exactly on the total entered.
     const wcCycleTotal = num(wc.wcCycleDays);
-    const stockHoldingDays = 60;
-    const suppliersDays = 7;
-    const debtorsDays = wcCycleTotal - stockHoldingDays + suppliersDays;
+    const { stockHoldingDays, suppliersDays, debtorsDays } = holdingComposition(enterprise.enterpriseType, wcCycleTotal);
 
     const dailyPurchases = totalPurchases / 365;
     const dailySales = totalSales / 365;
@@ -979,7 +1003,7 @@ function App() {
       foir, dscr, dscrLabel, dscrTone, recommendation, tone, loanReq, totalExistingEmi, existingEmiShg, existingEmiBank, existingEmiInformal, emiMonthlyHHExpenditureExclEmi,
       wcEligibleLimit, recommendedTermLoan, recommendedWc, termLoanWasReduced, wcWasReduced,
     };
-  }, [h1, h2, govtSubsidy, openingStock, h3, drawings, credit, proj, loanF, tl, wc, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
+  }, [h1, h2, govtSubsidy, openingStock, h3, drawings, credit, proj, loanF, tl, wc, enterprise, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
 
   // Auto-suggest the proposed EMI from the PMT calculation once loan terms are entered (still overridable)
   useEffect(() => {
@@ -1709,7 +1733,11 @@ function App() {
         @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
         .serif { font-family: 'Source Serif 4', serif; }
         .mono { font-family: 'IBM Plex Mono', monospace; }
-        @media print { .no-print { display: none !important; } .print-area { box-shadow: none !important; } }
+        @media print {
+          .no-print { display: none !important; }
+          .print-area { box-shadow: none !important; }
+          .fs-print-fix { position: static !important; inset: auto !important; max-height: none !important; height: auto !important; overflow: visible !important; background: none !important; display: block !important; }
+        }
       `}</style>
 
       <div className="bg-emerald-900 text-stone-50 px-5 py-4 no-print">
@@ -2022,7 +2050,7 @@ function App() {
 
             <SubHeading>H3. Balance Sheet / तुलन पत्र</SubHeading>
             <p className="text-xs text-stone-600 mb-2">
-              Stock, Debtors, and Credit from Suppliers are auto-calculated from the Total Working Capital Cycle entered in F2 (Step 2): Stock (fixed 60 days) + Debtors − Suppliers' Credit (fixed 7 days) = your total ({calc.stockHoldingDays + calc.debtorsDays - calc.suppliersDays} days currently: Stock {calc.stockHoldingDays}d + Debtors {calc.debtorsDays}d − Suppliers {calc.suppliersDays}d). Adjust the total cycle in Step 2 if it doesn't match reality. / स्टॉक, देनदार व आपूर्तिकर्ता उधार, F2 में दिए गए कुल चक्र से स्वतः गणना होते हैं।
+              Stock, Debtors, and Credit from Suppliers are auto-calculated from the Total Working Capital Cycle entered in F2 (Step 2), split by Type of Enterprise: Stock + Debtors − Suppliers' Credit = your total ({calc.stockHoldingDays + calc.debtorsDays - calc.suppliersDays} days currently: Stock {calc.stockHoldingDays}d + Debtors {calc.debtorsDays}d − Suppliers {calc.suppliersDays}d). Adjust the total cycle in Step 2, or the Type of Enterprise, if this doesn't match reality. / स्टॉक, देनदार व आपूर्तिकर्ता उधार, F2 में दिए गए कुल चक्र व उद्यम प्रकार से स्वतः गणना होते हैं।
             </p>
             <p className="text-xs font-semibold text-stone-500 mb-1">A. Current Liabilities</p>
             <NumList

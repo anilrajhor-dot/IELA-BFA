@@ -64,6 +64,7 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
+const APP_VERSION = "1.1.0"; // v1.1.0: corrected Net Profit to derive from Gross Profit (Opening/Closing Stock now flow through correctly) — see change log in help.
 const STEPS = ["Identity / पहचान", "Enterprise & Loan / उद्यम व ऋण", "Financials / वित्तीय", "Projections / अनुमान", "Household / परिवार", "EMI Feasibility / ईएमआई व्यवहार्यता", "Report / रिपोर्ट"];
 
 function Icon({ name, size = 16, className = "" }) {
@@ -852,8 +853,6 @@ function App() {
     const expenditureSum = sum(...H2_EXPENDITURE_FIELDS.map((f) => h2[f.k])) + interestShgFinal + interestBankFinal + interestInformalFinal + interestOtherBankFinal;
     const totalExpenditure = totalPurchases + expenditureSum;
     const totalIncome = totalSales + totalOtherIncome + num(govtSubsidy);
-    const netProfit = totalIncome - totalExpenditure;
-    const netMargin = totalSales ? (netProfit / totalSales) * 100 : 0;
 
     // Holding-period-based auto-calculation (standard operating-cycle method): value = (annual flow ÷ 365) × holding days.
     // The single "Total Working Capital Cycle" (F2) is the NET operating cycle: Stock + Debtors − Suppliers' Credit
@@ -871,10 +870,17 @@ function App() {
     const creditorsAuto = dailyPurchases * suppliersDays;
 
     // Closing Stock is auto-calculated from the Stock Holding Period (Step 2, F2) — no need to enter it twice.
+    // CRITICAL ACCOUNTING FIX: COGS = Opening Stock + Purchases − Closing Stock; Gross Profit = Sales − COGS;
+    // Net Profit is derived FROM Gross Profit (not from Total Purchases directly), so Closing Stock correctly
+    // reduces COGS (raising profit) and Opening Stock correctly adds to COGS (reducing profit). Previously Net
+    // Profit was computed as Total Income − Total Expenditure (Sales + Other Income + Subsidy − Purchases − Opex
+    // − Interest), which silently ignored Opening/Closing Stock entirely — that was a real bug, now corrected.
     const closingStock = stockValueAuto;
     const cogs = num(openingStock) + totalPurchases - closingStock;
     const grossProfit = totalSales - cogs;
     const grossMargin = totalSales ? (grossProfit / totalSales) * 100 : 0;
+    const netProfit = grossProfit + totalOtherIncome + num(govtSubsidy) - expenditureSum;
+    const netMargin = totalSales ? (netProfit / totalSales) * 100 : 0;
     const avgMonthlyNetProfit = netProfit / 12;
 
     // H3 balance sheet
@@ -1372,7 +1378,7 @@ function App() {
       doc.setFontSize(10);
       doc.text("Prepared by: _____________________     Vitta Sakhi / BPM", left, y);
       y += 10;
-      doc.text("Reviewed by: _____________________     Bank Officer", left, y);
+      doc.text("Reviewed by: _____________________     BPM", left, y);
       y += 10;
       doc.text("Date: _____________________", left, y);
 
@@ -1555,7 +1561,7 @@ function App() {
       doc.setFontSize(10);
       doc.text("Prepared by: _____________________     Vitta Sakhi / BPM", left, y);
       y += 10;
-      doc.text("Reviewed by: _____________________     Bank Officer", left, y);
+      doc.text("Reviewed by: _____________________     BPM", left, y);
       y += 10;
       doc.text("Date: _____________________", left, y);
 
@@ -2000,7 +2006,7 @@ function App() {
           </div>
         </div>
         <p className="text-xs text-emerald-100 mt-0.5">DAY-NRLM Annexure III — Enterprise Loan Business Analysis / उद्यम ऋण व्यवसाय विश्लेषण</p>
-        <p className="text-xs text-amber-300 mt-0.5 font-medium">Developed by Anil Sharma, former General Manager, Central Bank of India</p>
+        <p className="text-xs text-amber-300 mt-0.5 font-medium">Developed by Anil Sharma, former General Manager, Central Bank of India · v{APP_VERSION}</p>
         <p className="text-xs text-red-300 mt-1">■ Red text/values = calculated automatically — you don't need to type these yourself. / लाल रंग का पाठ स्वतः गणना होता है, इसे स्वयं भरने की आवश्यकता नहीं।</p>
       </div>
 
@@ -2781,12 +2787,20 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
         {calc.ownersCapital < 0 && <li>Owner's capital works out negative — liabilities other than capital exceed total assets; treat this report as provisional until resolved.</li>}
         {calc.monthlyHouseholdSurplus < 0 && <li>Household expenses currently exceed income; reducing expenses will improve eligibility.</li>}
         <li>
-          <span className="font-semibold">Recommended Term Loan: {inr(calc.recommendedTermLoan)}</span>
-          {calc.termLoanWasReduced ? ` (requested ${inr(calc.tlAmount)}, reduced to fit repayment capacity — DSCR/EMI eligibility).` : " (matches the amount requested)."}
+          {calc.termLoanWasReduced && calc.recommendedTermLoan > 0 ? (
+            <>Applied for <span className="font-semibold">{inr(calc.tlAmount)}</span> — as per income/repayment capacity, <span className="font-semibold">{inr(calc.recommendedTermLoan)}</span> with EMI of {inr(pmt(calc.recommendedTermLoan, loanF.interestRate, loanF.tenureMonths))} may be approved instead.</>
+          ) : calc.termLoanWasReduced && calc.recommendedTermLoan <= 0 ? (
+            <>Applied for <span className="font-semibold">{inr(calc.tlAmount)}</span> — as per current income/repayment capacity, no Term Loan amount can be safely supported at this time.</>
+          ) : (
+            <>The full Term Loan amount requested (<span className="font-semibold">{inr(calc.tlAmount)}</span>) may be approved, with EMI of {inr(pmt(calc.recommendedTermLoan, loanF.interestRate, loanF.tenureMonths))}.</>
+          )}
         </li>
         <li>
-          <span className="font-semibold">Recommended Working Capital / CC Limit: {inr(calc.recommendedWc)}</span>
-          {calc.wcWasReduced ? ` (requested ${inr(calc.wcLoanAmount)}, reduced to fit the Tandon/Turnover method ceiling of ${inr(calc.wcEligibleLimit)}).` : " (matches the amount requested)."}
+          {calc.wcWasReduced ? (
+            <>Applied for Working Capital/CC of <span className="font-semibold">{inr(calc.wcLoanAmount)}</span> — as per the Tandon/Turnover method ceiling of {inr(calc.wcEligibleLimit)}, <span className="font-semibold">{inr(calc.recommendedWc)}</span> may be approved instead.</>
+          ) : (
+            <>The full Working Capital/CC amount requested (<span className="font-semibold">{inr(calc.wcLoanAmount)}</span>) may be approved.</>
+          )}
         </li>
         {calc.recommendation === "Not Recommended" && calc.recommendedTermLoan <= 0 && calc.minTenureMonths && calc.minTenureMonths <= 60 && (
           <li>Alternative: extending the repayment period to about {calc.minTenureMonths} months (within the 60-month maximum) could make a Term Loan viable at the current EMI capacity — editable on Step 2 if the applicant agrees.</li>
@@ -2795,9 +2809,9 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
       </ul>
 
       <p className="text-xs text-stone-600 mt-6">Prepared by: _____________________&nbsp;&nbsp;&nbsp;Vitta Sakhi / BPM</p>
-      <p className="text-xs text-stone-600 mt-2">Reviewed by: _____________________&nbsp;&nbsp;&nbsp;Bank Officer</p>
+      <p className="text-xs text-stone-600 mt-2">Reviewed by: _____________________&nbsp;&nbsp;&nbsp;BPM</p>
       <p className="text-xs text-stone-600 mt-2">Date: _____________________</p>
-      <p className="text-center text-xs text-stone-400 mt-6 pt-3 border-t border-stone-200">Developed by Anil Sharma, former General Manager, Central Bank of India</p>
+      <p className="text-center text-xs text-stone-400 mt-6 pt-3 border-t border-stone-200">Developed by Anil Sharma, former General Manager, Central Bank of India · v{APP_VERSION}</p>
     </div>
   );
 }

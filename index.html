@@ -64,7 +64,22 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
-const APP_VERSION = "1.1.0"; // v1.1.0: corrected Net Profit to derive from Gross Profit (Opening/Closing Stock now flow through correctly) — see change log in help.
+const APP_VERSION = "1.2.0";
+// Change log:
+// v1.2.0 — Detailed CA-Style Financial Statements & Independent Balance Sheet Validation
+//   - Year 2/Year 3 P&L now properly COGS-based (Opening Stock rolls forward from Last Year's actual Closing
+//     Stock; Closing Stock is estimated via the same holding-period logic) instead of Sales − Purchases − Opex.
+//   - Year 2 Projected Balance Sheet: Owner's Capital is no longer a blind plug — rolled forward as Opening
+//     Capital + Net Profit − Drawings, then independently checked against Assets − Liabilities. A genuine
+//     mismatch now surfaces as a "Balance Sheet Mismatch" warning (Report, Panel, both PDFs, Health Check)
+//     instead of being silently hidden.
+//   - Trading & P&L now follows a proper CA-style sequence (Net Sales → COGS build-up → Gross Profit → Other
+//     Income → Operating Expenses → Interest itemised by loan type — SHG/Bank/Informal/Other Bank — → Net
+//     Profit), using only existing fields (no new inputs added).
+//   - Two new Health Check items: Negative COGS, Year 2 Balance Sheet Mismatch.
+//   - Fixed a display bug where Year 2/3 "Purchases/COGS" rows showed the old Sales-margin proxy instead of the
+//     real COGS figure.
+// v1.1.0 — corrected Net Profit to derive from Gross Profit (Opening/Closing Stock now flow through correctly).
 const STEPS = ["Identity / पहचान", "Enterprise & Loan / उद्यम व ऋण", "Financials / वित्तीय", "Projections / अनुमान", "Household / परिवार", "EMI Feasibility / ईएमआई व्यवहार्यता", "Report / रिपोर्ट"];
 
 function Icon({ name, size = 16, className = "" }) {
@@ -667,8 +682,19 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
 
           <SubHeading>2. Trading & P&L — Last Year (Actual)</SubHeading>
           <Card>
-            <Row label="Sales" value={inr(calc.totalSales)} auto />
-            <Row label="Gross Profit" value={inr(calc.grossProfit)} auto />
+            <Row label="Sales (Net of Returns)" value={inr(calc.totalSales)} auto />
+            <Row label="Opening Stock" value={inr(num(openingStock))} />
+            <Row label="Add: Purchases" value={inr(calc.totalPurchases)} auto />
+            <Row label="Less: Closing Stock" value={inr(calc.closingStock)} auto />
+            <Row label="Cost of Goods Sold (COGS)" value={inr(calc.cogs)} bold auto />
+            <Row label="Gross Profit" value={inr(calc.grossProfit)} bold auto />
+            <Row label="Add: Other Income" value={inr(calc.totalOtherIncome)} auto />
+            <Row label="Add: Government Subsidy/Grant" value={inr(num(govtSubsidy))} />
+            <Row label="Less: Operating & Administrative Expenses" value={inr(calc.opexOnly)} auto />
+            {num(calc.interestShgFinal) > 0 && <Row label="Less: Interest on SHG Loan" value={inr(calc.interestShgFinal)} auto />}
+            {num(calc.interestBankFinal) > 0 && <Row label="Less: Interest on Bank Loan" value={inr(calc.interestBankFinal)} auto />}
+            {num(calc.interestInformalFinal) > 0 && <Row label="Less: Interest on Informal Loan" value={inr(calc.interestInformalFinal)} auto />}
+            {num(calc.interestOtherBankFinal) > 0 && <Row label="Less: Interest on Other Bank Loan/OD" value={inr(calc.interestOtherBankFinal)} auto />}
             <Row label="Net Profit / (Loss)" value={inr(calc.netProfit)} bold auto last />
           </Card>
 
@@ -685,6 +711,9 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
             <Row label="Total Liabilities" value={inr(calc.totalLiabilitiesY2)} auto />
             <Row label="Owner's Capital" value={inr(calc.ownersCapitalY2)} bold auto last />
           </Card>
+          {calc.bsMismatchY2Flag && (
+            <Banner tone="warn">Balance Sheet Mismatch (Year 2): off by {inr(Math.abs(calc.bsMismatchY2))} — expected in a simplified projection; see Health Check for details.</Banner>
+          )}
 
           <SubHeading>4. Working Capital Assessment</SubHeading>
           <Card>
@@ -851,6 +880,7 @@ function App() {
     const interestInformalFinal = num(h2.interestInformalOverride);
     const interestOtherBankFinal = num(h2.interestOtherBankOverride);
     const expenditureSum = sum(...H2_EXPENDITURE_FIELDS.map((f) => h2[f.k])) + interestShgFinal + interestBankFinal + interestInformalFinal + interestOtherBankFinal;
+    const opexOnly = expenditureSum - interestShgFinal - interestBankFinal - interestInformalFinal - interestOtherBankFinal; // Operating Expenses, excluding interest (single source for CA-style breakout)
     const totalExpenditure = totalPurchases + expenditureSum;
     const totalIncome = totalSales + totalOtherIncome + num(govtSubsidy);
 
@@ -896,7 +926,12 @@ function App() {
     const totalLiabilities = totalCL + totalLTL + totalNetWorth;
     const balances = Math.round(totalAssets) === Math.round(totalLiabilities); // true by construction — capital is the plug
 
-    // Projections (recomputed correctly — see note to user about the original template's disconnected formulas)
+    // Projections (recomputed correctly — see note to user about the original template's disconnected formulas).
+    // Y2/Y3 Net Profit now properly flows through Opening/Closing Stock (COGS-based), the same accounting principle
+    // as the Last Year Actual P&L above — not just Sales − Purchases − Opex. Opening Stock for Year 2 rolls forward
+    // from Last Year's actual Closing Stock (single source, no duplicate figure); Closing Stock for Year 2/3 is an
+    // ESTIMATE using the same holding-period composition applied to that year's projected Purchases — labelled as
+    // such wherever shown, and reused as-is (not recalculated) for the Year 2 Balance Sheet below.
     const opexY1 = totalExpenditure - totalPurchases; // operating expenditure excl. purchases
     const salesY2 = totalSales * (1 + proj.growthSalesY2 / 100);
     const salesY3 = salesY2 * (1 + proj.growthSalesY3 / 100);
@@ -905,9 +940,23 @@ function App() {
     const purchasesY2 = salesY2 * (1 - blendedMargin / 100);
     const purchasesY3 = salesY3 * (1 - blendedMargin / 100);
     const annualEmi = num(loanF.proposedEmi) * 12;
+
+    const dailyPurchasesY2 = purchasesY2 / 365;
+    const dailySalesY2 = salesY2 / 365;
+    const openingStockY2 = closingStock; // rolls forward from Last Year Actual — single source
+    const closingStockY2 = dailyPurchasesY2 * stockHoldingDays; // Estimated/Auto
+    const cogsY2 = openingStockY2 + purchasesY2 - closingStockY2;
+    const grossProfitY2 = salesY2 - cogsY2;
+
+    const dailyPurchasesY3 = purchasesY3 / 365;
+    const openingStockY3 = closingStockY2; // rolls forward from Year 2 estimate
+    const closingStockY3 = dailyPurchasesY3 * stockHoldingDays; // Estimated/Auto
+    const cogsY3 = openingStockY3 + purchasesY3 - closingStockY3;
+    const grossProfitY3 = salesY3 - cogsY3;
+
     const netProfitY1 = netProfit;
-    const netProfitY2 = salesY2 - purchasesY2 - opexY2;
-    const netProfitY3 = salesY3 - purchasesY3 - opexY3;
+    const netProfitY2 = grossProfitY2 - opexY2;
+    const netProfitY3 = grossProfitY3 - opexY3;
 
     // Working Capital Assessment — Tandon Committee method (Method I & II) + Turnover method (Nayak Committee)
     // Bank Loan Outstanding (credit.bankLoanOutstanding) is a long-term liability (part of totalLTL), not a current
@@ -1004,14 +1053,13 @@ function App() {
 
     // Balance Sheet — Projected (Year 2), WITH the recommended loan facilities applied (this is what the balance
     // sheet would look like after the Term Loan is disbursed and used to buy the asset, and the household carries
-    // on trading at the Year 2 projected level). Stock/Debtors/Creditors use the same holding-period composition,
-    // applied to Year 2 Sales/Purchases. Existing SHG/Bank/Informal balances are carried forward unchanged (no
-    // amortization schedule tracked). Owner's Capital is the balancing figure, same method as the actual sheet.
-    const dailyPurchasesY2 = purchasesY2 / 365;
-    const dailySalesY2 = salesY2 / 365;
-    const stockY2 = dailyPurchasesY2 * stockHoldingDays;
+    // on trading at the Year 2 projected level). Stock reuses the SAME figure already computed for the Year 2 P&L
+    // above (single source — never recalculated separately). Debtors/Creditors use the same holding-period
+    // composition, applied to Year 2 Sales/Purchases. Existing SHG/Bank/Informal balances are carried forward
+    // unchanged (no amortization schedule tracked).
     const debtorsY2 = dailySalesY2 * debtorsDays;
     const creditorsY2 = dailyPurchasesY2 * suppliersDays;
+    const stockY2 = closingStockY2; // single source — same value shown as Year 2 Closing Stock in the P&L
 
     const faY2 = totalFA + num(tl.quotedPrice);
     const oaY2 = totalOA;
@@ -1019,23 +1067,33 @@ function App() {
     const totalAssetsY2 = caY2 + faY2 + oaY2;
     const clY2 = sum(num(credit.shgLoanOutstanding), num(credit.informalLoan), creditorsY2, ...CL_FIELDS.map((f) => h3[f.k]));
     const ltlY2 = sum(num(credit.bankLoanOutstanding), recommendedTermLoan, ...LTL_FIELDS.map((f) => h3[f.k]));
-    const ownersCapitalY2 = totalAssetsY2 - clY2 - ltlY2;
+
+    // Capital is NOT a blind balancing plug here: it is rolled forward from Last Year's actual Capital using Net
+    // Profit and Drawings (both independently known) — Closing Capital = Opening Capital + Net Profit − Drawings.
+    // Assets are then INDEPENDENTLY checked against Liabilities + this rolled-forward Capital; if they don't match,
+    // that's surfaced as a genuine Balance Sheet Mismatch (Health Check) rather than silently hidden by a plug —
+    // a real projection commonly won't tally exactly, since the new asset purchase and margin money aren't tracked
+    // through a full cash-flow statement in this simplified 1-year model.
+    const ownersCapitalY2 = ownersCapital + netProfitY2 - num(drawings);
     const totalLiabilitiesY2 = clY2 + ltlY2 + ownersCapitalY2;
+    const bsMismatchY2 = totalAssetsY2 - totalLiabilitiesY2;
+    const bsMismatchY2Flag = Math.abs(bsMismatchY2) > 1;
 
     return {
       rows, totalSales, totalPurchases, totalOtherIncome, avgMonthlySaleTotal, blendedMargin,
-      totalExpenditure, totalIncome, netProfit, netMargin, closingStock, cogs, grossProfit, grossMargin, avgMonthlyNetProfit,
+      totalExpenditure, totalIncome, netProfit, netMargin, closingStock, cogs, grossProfit, grossMargin, avgMonthlyNetProfit, opexOnly,
       totalCL, totalLTL, totalCA, totalFA, totalOA, totalAssets, ownersCapital, totalNetWorth, totalLiabilities, balances,
       clOtherThanBankBorrowings, workingCapitalGap, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
       projectedTurnover, turnoverWcRequirement, turnoverMargin, turnoverBankFinance,
       tlAmount, wcLoanAmount, totalProjectCost, totalLoanRequested, marginMoneyDerived, stockValueAuto, debtorsAuto, creditorsAuto, stockHoldingDays, debtorsDays, suppliersDays, interestShgAuto, interestBankAuto, interestInformalAuto, interestOtherBankAuto, interestShgFinal, interestBankFinal, interestInformalFinal, interestOtherBankFinal, moratoriumMonths, tlPrincipalAfterMoratorium,
       salesY2, salesY3, opexY2, opexY3, purchasesY2, purchasesY3, netProfitY1, netProfitY2, netProfitY3, annualEmi,
+      openingStockY2, closingStockY2, cogsY2, grossProfitY2, openingStockY3, closingStockY3, cogsY3, grossProfitY3,
       hhIncomeTotalWithBiz, hhExpTotal, householdSurplusAnnual, monthlyHHIncome, monthlyHHExpenditure, monthlyHouseholdSurplus, businessProfitLinked,
       totalMonthlyEmi, netCashSurplusAfterAllEmis,
       calculatedEmi, surplusBeforeNewEmi, surplusAfterNewEmi, safeEmiCapacity, maxEligibleLoan, minTenureMonths,
       foir, dscr, dscrLabel, dscrTone, recommendation, tone, loanReq, totalExistingEmi, existingEmiShg, existingEmiBank, existingEmiInformal, emiMonthlyHHExpenditureExclEmi,
       wcEligibleLimit, recommendedTermLoan, recommendedWc, termLoanWasReduced, wcWasReduced,
-      stockY2, debtorsY2, creditorsY2, faY2, oaY2, caY2, totalAssetsY2, clY2, ltlY2, ownersCapitalY2, totalLiabilitiesY2,
+      stockY2, debtorsY2, creditorsY2, faY2, oaY2, caY2, totalAssetsY2, clY2, ltlY2, ownersCapitalY2, totalLiabilitiesY2, bsMismatchY2, bsMismatchY2Flag,
     };
   }, [h1, h2, govtSubsidy, openingStock, h3, drawings, credit, proj, loanF, tl, wc, enterprise, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
 
@@ -1261,16 +1319,20 @@ function App() {
       y += 4;
 
       sectionHeader("2. Trading & Profit and Loss Account — Last Year (Actual)");
-      row("Sales (Annual)", inr(calc.totalSales));
-      row("Other Income", inr(calc.totalOtherIncome));
+      row("Sales (Net of Returns)", inr(calc.totalSales));
       row("Opening Stock", inr(num(openingStock)));
       row("Add: Purchases", inr(calc.totalPurchases));
       row("Less: Closing Stock", inr(calc.closingStock));
-      row("Cost of Goods Sold (COGS)", inr(calc.cogs));
+      row("Cost of Goods Sold (COGS)", inr(calc.cogs), { bold: true });
       row("Gross Profit", inr(calc.grossProfit), { bold: true });
       row("Gross Margin", pct(calc.grossMargin));
-      row("Less: Operating Expenses & Interest", inr(calc.totalExpenditure - calc.totalPurchases));
+      row("Add: Other Income", inr(calc.totalOtherIncome));
       row("Add: Government Subsidy/Grant", inr(num(govtSubsidy)));
+      row("Less: Operating & Administrative Expenses", inr(calc.opexOnly));
+      if (num(calc.interestShgFinal) > 0) row("Less: Interest on SHG Loan", inr(calc.interestShgFinal));
+      if (num(calc.interestBankFinal) > 0) row("Less: Interest on Bank Loan", inr(calc.interestBankFinal));
+      if (num(calc.interestInformalFinal) > 0) row("Less: Interest on Informal Loan", inr(calc.interestInformalFinal));
+      if (num(calc.interestOtherBankFinal) > 0) row("Less: Interest on Other Bank Loan/OD", inr(calc.interestOtherBankFinal));
       row("Net Profit / (Loss)", inr(calc.netProfit), { bold: true });
       row("Net Margin", pct(calc.netMargin));
       note(`Includes actual interest paid — SHG ${inr(calc.interestShgFinal)}, Bank ${inr(calc.interestBankFinal)}, Informal ${inr(calc.interestInformalFinal)}.`);
@@ -1290,7 +1352,11 @@ function App() {
       row("Balance Sheet — Projected (Year 2, loan applied): Total Assets", inr(calc.totalAssetsY2));
       row("Balance Sheet — Projected (Year 2): Total Liabilities", inr(calc.totalLiabilitiesY2));
       row("Balance Sheet — Projected (Year 2): Owner's Capital", inr(calc.ownersCapitalY2), { bold: true });
-      note(`Year 2 estimate includes the recommended Term Loan (${inr(calc.recommendedTermLoan)}) as newly disbursed and the new asset it funds; existing loan balances carried forward unchanged.`);
+      if (calc.bsMismatchY2Flag) {
+        note(`BALANCE SHEET MISMATCH (Year 2): Assets and Liabilities+Capital differ by ${inr(Math.abs(calc.bsMismatchY2))} — expected in a simplified 1-year projection (Capital is rolled forward from Last Year, not plugged). The Last Year Actual sheet above is unaffected.`);
+      } else {
+        note(`Year 2 estimate includes the recommended Term Loan (${inr(calc.recommendedTermLoan)}) as newly disbursed and the new asset it funds; existing loan balances carried forward unchanged.`);
+      }
 
       sectionHeader("4. Working Capital Assessment");
       row("Projected Annual Turnover (Year 2)", inr(calc.projectedTurnover));
@@ -1320,7 +1386,7 @@ function App() {
       y += 6;
       doc.setFont(undefined, "normal");
       triRow("Sales", inr(calc.totalSales), inr(calc.salesY2), inr(calc.salesY3));
-      triRow("Purchases / COGS", inr(calc.totalPurchases), inr(calc.purchasesY2), inr(calc.purchasesY3));
+      triRow("Purchases / COGS", inr(calc.totalPurchases), inr(calc.cogsY2), inr(calc.cogsY3));
       triRow("Net Profit / (Loss)", inr(calc.netProfitY1), inr(calc.netProfitY2), inr(calc.netProfitY3), true);
       note(`Growth assumptions: Sales +${proj.growthSalesY2}% (Yr2), +${proj.growthSalesY3}% (Yr3); Operating Expenditure +${proj.growthOpexY2}% (Yr2), +${proj.growthOpexY3}% (Yr3).`);
 
@@ -1497,19 +1563,22 @@ function App() {
       y += 4;
 
       sectionHeader("1. Trading & Profit and Loss Account — Last Year (Actual)");
-      row("Sales (Annual)", inr(calc.totalSales));
-      row("Other Income", inr(calc.totalOtherIncome));
+      row("Sales (Net of Returns)", inr(calc.totalSales));
       row("Opening Stock", inr(num(openingStock)));
       row("Add: Purchases", inr(calc.totalPurchases));
       row("Less: Closing Stock", inr(calc.closingStock));
-      row("Cost of Goods Sold (COGS)", inr(calc.cogs));
+      row("Cost of Goods Sold (COGS)", inr(calc.cogs), { bold: true });
       row("Gross Profit", inr(calc.grossProfit), { bold: true });
       row("Gross Margin", pct(calc.grossMargin));
-      row("Less: Operating Expenses & Interest", inr(calc.totalExpenditure - calc.totalPurchases));
+      row("Add: Other Income", inr(calc.totalOtherIncome));
       row("Add: Government Subsidy/Grant", inr(num(govtSubsidy)));
+      row("Less: Operating & Administrative Expenses", inr(calc.opexOnly));
+      if (num(calc.interestShgFinal) > 0) row("Less: Interest on SHG Loan", inr(calc.interestShgFinal));
+      if (num(calc.interestBankFinal) > 0) row("Less: Interest on Bank Loan", inr(calc.interestBankFinal));
+      if (num(calc.interestInformalFinal) > 0) row("Less: Interest on Informal Loan", inr(calc.interestInformalFinal));
+      if (num(calc.interestOtherBankFinal) > 0) row("Less: Interest on Other Bank Loan/OD", inr(calc.interestOtherBankFinal));
       row("Net Profit / (Loss)", inr(calc.netProfit), { bold: true });
       row("Net Margin", pct(calc.netMargin));
-      note(`Includes actual interest paid — SHG ${inr(calc.interestShgFinal)}, Bank ${inr(calc.interestBankFinal)}, Informal ${inr(calc.interestInformalFinal)}.`);
 
       sectionHeader("2. Trading & Profit and Loss Account — Projected");
       ensureSpace(8);
@@ -1521,8 +1590,8 @@ function App() {
       y += 6;
       doc.setFont(undefined, "normal");
       twoRow("Sales", inr(calc.salesY2), inr(calc.salesY3));
-      twoRow("Purchases / COGS", inr(calc.purchasesY2), inr(calc.purchasesY3));
-      twoRow("Gross Profit", inr(calc.salesY2 - calc.purchasesY2), inr(calc.salesY3 - calc.purchasesY3), true);
+      twoRow("Purchases / COGS", inr(calc.cogsY2), inr(calc.cogsY3));
+      twoRow("Gross Profit", inr(calc.grossProfitY2), inr(calc.grossProfitY3), true);
       twoRow("Operating Expenditure (incl. interest)", inr(calc.opexY2), inr(calc.opexY3));
       twoRow("Net Profit / (Loss)", inr(calc.netProfitY2), inr(calc.netProfitY3), true);
       note(`Growth assumptions: Sales +${proj.growthSalesY2}% (Yr2), +${proj.growthSalesY3}% (Yr3); Operating Expenditure +${proj.growthOpexY2}% (Yr2), +${proj.growthOpexY3}% (Yr3). COGS estimated from Sales at the same blended margin as last year.`);
@@ -1554,8 +1623,11 @@ function App() {
       row("Fixed Assets (Last Year + new asset funded by this Term Loan)", inr(calc.faY2));
       row("Other Assets (carried forward)", inr(calc.oaY2));
       row("TOTAL ASSETS", inr(calc.totalAssetsY2), { bold: true });
-      note(`Balance Sheet tallies: Assets ${inr(calc.totalAssetsY2)} = Liabilities ${inr(calc.totalLiabilitiesY2)}.`);
-      note(`Estimated — existing SHG/Bank/Informal loan balances carried forward unchanged (no amortization schedule assumed); recommended Term Loan (${inr(calc.recommendedTermLoan)}) added as newly disbursed and applied to fund the new asset.`);
+      if (calc.bsMismatchY2Flag) {
+        note(`BALANCE SHEET MISMATCH: Assets ${inr(calc.totalAssetsY2)} vs Liabilities+Capital ${inr(calc.totalLiabilitiesY2)} — differ by ${inr(Math.abs(calc.bsMismatchY2))}. Expected in a simplified 1-year projection (Capital is rolled forward from Last Year, not plugged). The Last Year Actual sheet above is unaffected and still tallies exactly.`);
+      } else {
+        note(`Balance Sheet tallies: Assets ${inr(calc.totalAssetsY2)} = Liabilities ${inr(calc.totalLiabilitiesY2)}. Estimated — existing SHG/Bank/Informal loan balances carried forward unchanged (no amortization schedule assumed); recommended Term Loan (${inr(calc.recommendedTermLoan)}) added as newly disbursed and applied to fund the new asset.`);
+      }
 
       ensureSpace(30);
       doc.setFontSize(10);
@@ -1925,6 +1997,12 @@ function App() {
 
     if (calc.cogs > calc.totalSales && calc.totalSales > 0)
       list.push({ tone: "warn", title: "Cost of Goods Sold exceeds Sales", detail: `COGS is ${inr(calc.cogs)} against Sales of ${inr(calc.totalSales)}.`, fix: "Re-check Opening Stock, Purchases, and Closing Stock (Balance Sheet) figures in Step 3 — one of these is likely overstated or understated." });
+
+    if (calc.cogs < 0)
+      list.push({ tone: "danger", title: "Cost of Goods Sold is negative", detail: `COGS works out to ${inr(calc.cogs)} — Closing Stock (${inr(calc.closingStock)}) exceeds Opening Stock (${inr(num(openingStock))}) plus Purchases (${inr(calc.totalPurchases)}) combined.`, fix: "Re-check Opening Stock and the Working Capital Cycle (Step 2, F2) that drives Closing Stock — the stock holding period may be set too high relative to actual Purchases." });
+
+    if (calc.bsMismatchY2Flag)
+      list.push({ tone: "warn", title: "Year 2 Projected Balance Sheet does not tally", detail: `Projected Total Assets (${inr(calc.totalAssetsY2)}) differ from Capital + Liabilities (${inr(calc.totalLiabilitiesY2)}) by ${inr(Math.abs(calc.bsMismatchY2))}. Unlike the Last Year Actual sheet, Year 2 Capital is rolled forward (Opening Capital + Net Profit − Drawings) rather than plugged, so a real gap can show up.`, fix: "This is expected in a simplified 1-year projection — the new asset purchase and margin money aren't tracked through a full cash-flow statement. Treat the Year 2 sheet as an estimate; it does not affect the Last Year Actual sheet, which still tallies exactly." });
 
     if (calc.netProfit < 0)
       list.push({ tone: "danger", title: "Business is loss-making", detail: `Net loss of ${inr(Math.abs(calc.netProfit))} for the year.`, fix: "Review expenditure heads for overstatement, or hold off on this loan until margins improve." });
@@ -2398,13 +2476,13 @@ function App() {
 
             <Card title="Year 2 (Projected, auto)">
               <Row label="Sales" value={inr(calc.salesY2)} />
-              <Row label="Purchases / COGS" value={inr(calc.purchasesY2)} auto />
+              <Row label="Purchases / COGS" value={inr(calc.cogsY2)} auto />
               <Row label="Operating Expenditure" value={inr(calc.opexY2)} auto />
               <Row label="Net Profit / (Loss)" value={inr(calc.netProfitY2)} last auto />
             </Card>
             <Card title="Year 3 (Projected, auto)">
               <Row label="Sales" value={inr(calc.salesY3)} />
-              <Row label="Purchases / COGS" value={inr(calc.purchasesY3)} auto />
+              <Row label="Purchases / COGS" value={inr(calc.cogsY3)} auto />
               <Row label="Operating Expenditure" value={inr(calc.opexY3)} auto />
               <Row label="Net Profit / (Loss)" value={inr(calc.netProfitY3)} last auto />
             </Card>
@@ -2678,16 +2756,20 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
       <Row label="Bank & Branch" value={`${identity.bankName || "—"}, ${identity.branchName || "—"}`} last />
 
       <SubHeading>2. Trading & P&L Account — Last Year (Actual) / व्यापार व लाभ-हानि खाता (पिछला वर्ष)</SubHeading>
-      <Row label="Sales (Annual)" value={inr(calc.totalSales)} auto />
-      <Row label="Other Income" value={inr(calc.totalOtherIncome)} auto />
+      <Row label="Sales (Net of Returns)" value={inr(calc.totalSales)} auto />
       <Row label="Opening Stock" value={inr(num(openingStock))} />
       <Row label="Add: Purchases" value={inr(calc.totalPurchases)} auto />
       <Row label="Less: Closing Stock" value={inr(calc.closingStock)} auto />
-      <Row label="Cost of Goods Sold (COGS)" value={inr(calc.cogs)} auto />
+      <Row label="Cost of Goods Sold (COGS)" value={inr(calc.cogs)} bold auto />
       <Row label="Gross Profit" value={inr(calc.grossProfit)} bold auto />
       <Row label="Gross Margin" value={pct(calc.grossMargin)} auto />
-      <Row label="Less: Operating Expenses & Interest" value={inr(calc.totalExpenditure - calc.totalPurchases)} auto />
+      <Row label="Add: Other Income" value={inr(calc.totalOtherIncome)} auto />
       <Row label="Add: Government Subsidy/Grant" value={inr(num(govtSubsidy))} />
+      <Row label="Less: Operating & Administrative Expenses" value={inr(calc.opexOnly)} auto />
+      {num(calc.interestShgFinal) > 0 && <Row label="Less: Interest on SHG Loan" value={inr(calc.interestShgFinal)} auto />}
+      {num(calc.interestBankFinal) > 0 && <Row label="Less: Interest on Bank Loan" value={inr(calc.interestBankFinal)} auto />}
+      {num(calc.interestInformalFinal) > 0 && <Row label="Less: Interest on Informal Loan" value={inr(calc.interestInformalFinal)} auto />}
+      {num(calc.interestOtherBankFinal) > 0 && <Row label="Less: Interest on Other Bank Loan/OD" value={inr(calc.interestOtherBankFinal)} auto />}
       <Row label="Net Profit / (Loss)" value={inr(calc.netProfit)} bold auto />
       <Row label="Net Margin" value={pct(calc.netMargin)} last auto />
       <p className="text-xs text-stone-500 italic mt-1 mb-2">Includes actual interest paid — SHG {inr(calc.interestShgFinal)}, Bank {inr(calc.interestBankFinal)}, Informal {inr(calc.interestInformalFinal)}.</p>
@@ -2712,9 +2794,15 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
       <Row label="Fixed Assets (Last Year + new asset funded by this Term Loan)" value={inr(calc.faY2)} auto />
       <Row label="Other Assets (carried forward)" value={inr(calc.oaY2)} auto />
       <Row label="TOTAL ASSETS" value={inr(calc.totalAssetsY2)} bold auto last />
-      <p className="text-xs text-stone-500 italic mt-1 mb-2">
-        Balance Sheet tallies: Assets {inr(calc.totalAssetsY2)} = Liabilities {inr(calc.totalLiabilitiesY2)}. Estimated — existing SHG/Bank/Informal loan balances are carried forward unchanged (no amortization schedule assumed); the recommended Term Loan ({inr(calc.recommendedTermLoan)}) is added as newly disbursed and applied to fund the new asset.
-      </p>
+      {calc.bsMismatchY2Flag ? (
+        <Banner tone="warn">
+          Balance Sheet Mismatch: Total Assets ({inr(calc.totalAssetsY2)}) do not equal Capital + Liabilities ({inr(calc.totalLiabilitiesY2)}) — a difference of {inr(Math.abs(calc.bsMismatchY2))}. This is expected in a simplified 1-year projection (Capital here is rolled forward from Last Year's actual figure, not plugged) — see Health Check for details. The Last Year Actual sheet above is unaffected and still tallies exactly.
+        </Banner>
+      ) : (
+        <p className="text-xs text-stone-500 italic mt-1 mb-2">
+          Balance Sheet tallies: Assets {inr(calc.totalAssetsY2)} = Liabilities {inr(calc.totalLiabilitiesY2)}. Estimated — existing SHG/Bank/Informal loan balances are carried forward unchanged (no amortization schedule assumed); the recommended Term Loan ({inr(calc.recommendedTermLoan)}) is added as newly disbursed and applied to fund the new asset.
+        </p>
+      )}
 
       <SubHeading>4. Working Capital Assessment / कार्यशील पूंजी मूल्यांकन</SubHeading>
       <Row label="Projected Annual Turnover (Year 2)" value={inr(calc.projectedTurnover)} auto />
@@ -2744,7 +2832,7 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
           </thead>
           <tbody className="text-stone-800">
             <tr className="border-b border-stone-200"><td className="px-2 py-1.5">Sales</td><td className="text-right px-2 py-1.5 font-mono">{inr(calc.totalSales)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.salesY2)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.salesY3)}</td></tr>
-            <tr className="border-b border-stone-200"><td className="px-2 py-1.5">Purchases / COGS</td><td className="text-right px-2 py-1.5 font-mono">{inr(calc.totalPurchases)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.purchasesY2)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.purchasesY3)}</td></tr>
+            <tr className="border-b border-stone-200"><td className="px-2 py-1.5">Purchases / COGS</td><td className="text-right px-2 py-1.5 font-mono">{inr(calc.totalPurchases)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.cogsY2)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.cogsY3)}</td></tr>
             <tr className="border-b border-stone-200 font-semibold"><td className="px-2 py-1.5">Net Profit / (Loss)</td><td className="text-right px-2 py-1.5 font-mono">{inr(calc.netProfitY1)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.netProfitY2)}</td><td className="text-right px-2 py-1.5 font-mono text-red-700">{inr(calc.netProfitY3)}</td></tr>
           </tbody>
         </table>
@@ -2811,7 +2899,7 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
       <p className="text-xs text-stone-600 mt-6">Prepared by: _____________________&nbsp;&nbsp;&nbsp;Vitta Sakhi / BPM</p>
       <p className="text-xs text-stone-600 mt-2">Reviewed by: _____________________&nbsp;&nbsp;&nbsp;BPM</p>
       <p className="text-xs text-stone-600 mt-2">Date: _____________________</p>
-      <p className="text-center text-xs text-stone-400 mt-6 pt-3 border-t border-stone-200">Developed by Anil Sharma, former General Manager, Central Bank of India · v{APP_VERSION}</p>
+      <p className="text-center text-xs text-stone-400 mt-6 pt-3 border-t border-stone-200">Developed by Anil Sharma, former General Manager, Central Bank of India · v{APP_VERSION} — Detailed CA-Style Financial Statements & Independent Balance Sheet Validation</p>
     </div>
   );
 }

@@ -678,6 +678,13 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
             <Row label="Owner's Capital" value={inr(calc.ownersCapital)} bold auto last />
           </Card>
 
+          <SubHeading>Balance Sheet — Projected (Year 2, loan applied)</SubHeading>
+          <Card>
+            <Row label="Total Assets" value={inr(calc.totalAssetsY2)} auto />
+            <Row label="Total Liabilities" value={inr(calc.totalLiabilitiesY2)} auto />
+            <Row label="Owner's Capital" value={inr(calc.ownersCapitalY2)} bold auto last />
+          </Card>
+
           <SubHeading>4. Working Capital Assessment</SubHeading>
           <Card>
             <Row label="Projected Turnover (Year 2)" value={inr(calc.projectedTurnover)} auto />
@@ -989,6 +996,26 @@ function App() {
     const termLoanWasReduced = recommendedTermLoan < tlAmount - 1;
     const wcWasReduced = recommendedWc < wcLoanAmount - 1;
 
+    // Balance Sheet — Projected (Year 2), WITH the recommended loan facilities applied (this is what the balance
+    // sheet would look like after the Term Loan is disbursed and used to buy the asset, and the household carries
+    // on trading at the Year 2 projected level). Stock/Debtors/Creditors use the same holding-period composition,
+    // applied to Year 2 Sales/Purchases. Existing SHG/Bank/Informal balances are carried forward unchanged (no
+    // amortization schedule tracked). Owner's Capital is the balancing figure, same method as the actual sheet.
+    const dailyPurchasesY2 = purchasesY2 / 365;
+    const dailySalesY2 = salesY2 / 365;
+    const stockY2 = dailyPurchasesY2 * stockHoldingDays;
+    const debtorsY2 = dailySalesY2 * debtorsDays;
+    const creditorsY2 = dailyPurchasesY2 * suppliersDays;
+
+    const faY2 = totalFA + num(tl.quotedPrice);
+    const oaY2 = totalOA;
+    const caY2 = sum(num(credit.cumulativeShgSavings), num(credit.ownSbSavings), num(credit.fdRd), num(credit.otherSavings), stockY2, debtorsY2, ...CA_FIELDS.map((f) => h3[f.k]));
+    const totalAssetsY2 = caY2 + faY2 + oaY2;
+    const clY2 = sum(num(credit.shgLoanOutstanding), num(credit.informalLoan), creditorsY2, ...CL_FIELDS.map((f) => h3[f.k]));
+    const ltlY2 = sum(num(credit.bankLoanOutstanding), recommendedTermLoan, ...LTL_FIELDS.map((f) => h3[f.k]));
+    const ownersCapitalY2 = totalAssetsY2 - clY2 - ltlY2;
+    const totalLiabilitiesY2 = clY2 + ltlY2 + ownersCapitalY2;
+
     return {
       rows, totalSales, totalPurchases, totalOtherIncome, avgMonthlySaleTotal, blendedMargin,
       totalExpenditure, totalIncome, netProfit, netMargin, closingStock, cogs, grossProfit, grossMargin, avgMonthlyNetProfit,
@@ -1002,6 +1029,7 @@ function App() {
       calculatedEmi, surplusBeforeNewEmi, surplusAfterNewEmi, safeEmiCapacity, maxEligibleLoan, minTenureMonths,
       foir, dscr, dscrLabel, dscrTone, recommendation, tone, loanReq, totalExistingEmi, existingEmiShg, existingEmiBank, existingEmiInformal, emiMonthlyHHExpenditureExclEmi,
       wcEligibleLimit, recommendedTermLoan, recommendedWc, termLoanWasReduced, wcWasReduced,
+      stockY2, debtorsY2, creditorsY2, faY2, oaY2, caY2, totalAssetsY2, clY2, ltlY2, ownersCapitalY2, totalLiabilitiesY2,
     };
   }, [h1, h2, govtSubsidy, openingStock, h3, drawings, credit, proj, loanF, tl, wc, enterprise, hhInc, hhExp, emiL1, projectedTurnoverOverride]);
 
@@ -1252,6 +1280,11 @@ function App() {
       row("Total Other Assets", inr(calc.totalOA));
       row("TOTAL ASSETS", inr(calc.totalAssets), { bold: true });
       note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
+      y += 1;
+      row("Balance Sheet — Projected (Year 2, loan applied): Total Assets", inr(calc.totalAssetsY2));
+      row("Balance Sheet — Projected (Year 2): Total Liabilities", inr(calc.totalLiabilitiesY2));
+      row("Balance Sheet — Projected (Year 2): Owner's Capital", inr(calc.ownersCapitalY2), { bold: true });
+      note(`Year 2 estimate includes the recommended Term Loan (${inr(calc.recommendedTermLoan)}) as newly disbursed and the new asset it funds; existing loan balances carried forward unchanged.`);
 
       sectionHeader("4. Working Capital Assessment");
       row("Projected Annual Turnover (Year 2)", inr(calc.projectedTurnover));
@@ -1502,6 +1535,21 @@ function App() {
       row("TOTAL ASSETS", inr(calc.totalAssets), { bold: true });
       note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
       note(`Stock/Debtors/Suppliers' Credit holding period (${enterprise.enterpriseType || "—"}): Stock ${calc.stockHoldingDays}d, Debtors ${calc.debtorsDays}d, Suppliers ${calc.suppliersDays}d.`);
+
+      sectionHeader("4. Balance Sheet — Projected (Year 2, with loan facilities applied)");
+      subheader("Liabilities");
+      row("Current Liabilities (carried forward + Creditors on projected purchases)", inr(calc.clY2));
+      row("Long-Term Liabilities (existing Bank Term Loan + recommended new Term Loan)", inr(calc.ltlY2));
+      row("Owner's Capital / Net Worth (Last Year + Year 2 retained profit)", inr(calc.ownersCapitalY2));
+      row("TOTAL LIABILITIES", inr(calc.totalLiabilitiesY2), { bold: true });
+      y += 2;
+      subheader("Assets");
+      row("Current Assets (savings carried forward + Stock/Debtors on projected turnover)", inr(calc.caY2));
+      row("Fixed Assets (Last Year + new asset funded by this Term Loan)", inr(calc.faY2));
+      row("Other Assets (carried forward)", inr(calc.oaY2));
+      row("TOTAL ASSETS", inr(calc.totalAssetsY2), { bold: true });
+      note(`Balance Sheet tallies: Assets ${inr(calc.totalAssetsY2)} = Liabilities ${inr(calc.totalLiabilitiesY2)}.`);
+      note(`Estimated — existing SHG/Bank/Informal loan balances carried forward unchanged (no amortization schedule assumed); recommended Term Loan (${inr(calc.recommendedTermLoan)}) added as newly disbursed and applied to fund the new asset.`);
 
       ensureSpace(30);
       doc.setFontSize(10);
@@ -2648,6 +2696,19 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
       <Row label="Total Other Assets" value={inr(calc.totalOA)} auto />
       <Row label="TOTAL ASSETS" value={inr(calc.totalAssets)} bold auto last />
       <p className="text-xs text-stone-500 italic mt-1 mb-2">Balance Sheet tallies: Assets {inr(calc.totalAssets)} = Liabilities {inr(calc.totalLiabilities)}.</p>
+
+      <SubHeading>Balance Sheet — Projected (Year 2, with loan facilities applied) / तुलन पत्र — अनुमानित (वर्ष 2)</SubHeading>
+      <Row label="Current Liabilities (carried forward + Creditors on projected purchases)" value={inr(calc.clY2)} auto />
+      <Row label="Long-Term Liabilities (existing Bank Term Loan + recommended new Term Loan)" value={inr(calc.ltlY2)} auto />
+      <Row label="Owner's Capital / Net Worth (Last Year Capital + Year 2 retained profit)" value={inr(calc.ownersCapitalY2)} auto />
+      <Row label="TOTAL LIABILITIES" value={inr(calc.totalLiabilitiesY2)} bold auto />
+      <Row label="Current Assets (savings carried forward + Stock/Debtors on projected turnover)" value={inr(calc.caY2)} auto />
+      <Row label="Fixed Assets (Last Year + new asset funded by this Term Loan)" value={inr(calc.faY2)} auto />
+      <Row label="Other Assets (carried forward)" value={inr(calc.oaY2)} auto />
+      <Row label="TOTAL ASSETS" value={inr(calc.totalAssetsY2)} bold auto last />
+      <p className="text-xs text-stone-500 italic mt-1 mb-2">
+        Balance Sheet tallies: Assets {inr(calc.totalAssetsY2)} = Liabilities {inr(calc.totalLiabilitiesY2)}. Estimated — existing SHG/Bank/Informal loan balances are carried forward unchanged (no amortization schedule assumed); the recommended Term Loan ({inr(calc.recommendedTermLoan)}) is added as newly disbursed and applied to fund the new asset.
+      </p>
 
       <SubHeading>4. Working Capital Assessment / कार्यशील पूंजी मूल्यांकन</SubHeading>
       <Row label="Projected Annual Turnover (Year 2)" value={inr(calc.projectedTurnover)} auto />

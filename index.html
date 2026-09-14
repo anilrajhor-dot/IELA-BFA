@@ -64,7 +64,11 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.1";
+// Change log:
+// v1.2.1 — Added clearly text-labeled buttons for "Financial Statements for Bank" and "Common Loan Application"
+//   on Step 1 (Identity), next to Load Sample Data/Export/Import — the header icons for these were easy to miss
+//   since they had no text label (same fix already applied earlier to Health Check).
 // Change log:
 // v1.2.0 — Detailed CA-Style Financial Statements & Independent Balance Sheet Validation
 //   - Year 2/Year 3 P&L now properly COGS-based (Opening Stock rolls forward from Last Year's actual Closing

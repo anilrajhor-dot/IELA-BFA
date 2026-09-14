@@ -64,11 +64,11 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
-const APP_VERSION = "1.2.1";
+const APP_VERSION = "1.2.2";
 // Change log:
-// v1.2.1 — Added clearly text-labeled buttons for "Financial Statements for Bank" and "Common Loan Application"
-//   on Step 1 (Identity), next to Load Sample Data/Export/Import — the header icons for these were easy to miss
-//   since they had no text label (same fix already applied earlier to Health Check).
+// v1.2.2 — Added "Financial Statements" and "Loan Application Form" quick-access buttons at the very top of the
+//   Report step (Step 7) — immediately visible without scrolling — plus a second, clearly labeled pair further
+//   down. These were previously only on Step 1, which wasn't where people were looking for them.
 // Change log:
 // v1.2.0 — Detailed CA-Style Financial Statements & Independent Balance Sheet Validation
 //   - Year 2/Year 3 P&L now properly COGS-based (Opening Stock rolls forward from Last Year's actual Closing
@@ -3045,7 +3045,24 @@ function App() {
 
         {step === 6 && (
           <>
+            <div className="no-print grid grid-cols-2 gap-2 mb-3">
+              <button onClick={() => setFsOpen(true)} className="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-md bg-emerald-900 text-stone-50 text-xs font-semibold">
+                <Icon name="description" size={15} /> Financial Statements
+              </button>
+              <button onClick={() => setClafOpen(true)} className="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-md bg-amber-600 text-white text-xs font-semibold">
+                <Icon name="account_balance" size={15} /> Loan Application Form
+              </button>
+            </div>
             <Report identity={identity} enterprise={enterprise} credit={credit} loanF={loanF} wc={wc} tl={tl} openingStock={openingStock} govtSubsidy={govtSubsidy} proj={proj} calc={calc} />
+            <div className="mt-4 no-print space-y-2">
+              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">Documents for bank submission</p>
+              <button onClick={() => setFsOpen(true)} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold">
+                <Icon name="description" size={16} /> Financial Statements for Bank (full, 8 sections) / बैंक हेतु पूर्ण वित्तीय विवरण
+              </button>
+              <button onClick={() => setClafOpen(true)} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md border-2 border-amber-600 text-amber-700 text-sm font-semibold">
+                <Icon name="account_balance" size={16} /> Common Loan Application (IBA Form) / ऋण आवेदन पत्र
+              </button>
+            </div>
             <div className="mt-4 no-print space-y-2">
               <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">P&L & Balance Sheet only (separate statements, for bank submission)</p>
               <div className="grid grid-cols-3 gap-2">

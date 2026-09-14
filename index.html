@@ -772,6 +772,73 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
   );
 }
 
+// ---------------- Common Loan Application Form (IBA-approved format, separate menu) ----------------
+function LoanApplicationPanel({ open, onClose, identity, enterprise, credit, wc, tl, loanF, k1, calc, onDownload, busy, status }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40 fs-print-fix flex items-end justify-center sm:items-center">
+      <div className="absolute inset-0 bg-black bg-opacity-30 no-print" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden fs-print-fix print-area" style={{ maxHeight: "85vh" }}>
+        <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between no-print">
+          <div className="flex items-center gap-2">
+            <Icon name="account_balance" size={18} className="text-amber-400" />
+            <span className="serif font-bold text-sm">Common Loan Application (for Bank)</span>
+          </div>
+          <button onClick={onClose}><Icon name="close" size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3">
+          <Banner tone="warn">
+            Auto-filled from IBA's approved Common Loan Application Form for DAY-NRLM SHG members, using whatever's currently in the app. The Financial Statements (P&L + Balance Sheet) are attached as extra pages in the same PDF. Fields this app doesn't capture (Gender, Education, ID proof numbers, SHG ID, PIN Code) are left blank — fill those by hand before submission.
+          </Banner>
+
+          <SubHeading>A. SHG & Member ID</SubHeading>
+          <Card>
+            <Row label="SHG Name" value={identity.shgName || "—"} />
+            <Row label="Member Name" value={identity.memberName || "—"} />
+            <Row label="DAY NRLM Member ID" value={identity.memberId || "—"} last />
+          </Card>
+
+          <SubHeading>F. Loan Facility Applied For</SubHeading>
+          <Card>
+            <Row label="Cash Credit/OD" value={inr(calc.wcLoanAmount)} auto />
+            <Row label="Term Loan" value={inr(calc.tlAmount)} auto />
+            <Row label="Total Applied For" value={inr(calc.totalLoanRequested)} bold auto last />
+          </Card>
+
+          <SubHeading>G. Enterprise Performance</SubHeading>
+          <Card>
+            <Row label="Sales — Last Year / Projected" value={`${inr(calc.totalSales)} / ${inr(calc.salesY2)}`} auto />
+            <Row label="Net Profit — Last Year / Projected" value={`${inr(calc.netProfit)} / ${inr(calc.netProfitY2)}`} bold auto last />
+          </Card>
+
+          <SubHeading>Attached</SubHeading>
+          <Card>
+            <Row label="Financial Statements (P&L + Balance Sheet)" value="Included as extra pages" last />
+          </Card>
+
+          <div className="no-print grid grid-cols-3 gap-2 mt-2">
+            <button onClick={() => onDownload("share")} disabled={busy} className="flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-md bg-emerald-900 text-stone-50 text-xs font-semibold disabled:opacity-40">
+              {busy ? <Icon name="progress_activity" size={16} className="animate-spin" /> : <Icon name="share" size={16} />} Share
+            </button>
+            <button onClick={() => onDownload("download")} disabled={busy} className="flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-md border border-emerald-900 text-emerald-900 text-xs font-semibold disabled:opacity-40">
+              <Icon name="download" size={16} /> Download
+            </button>
+            <button onClick={() => onDownload("print")} disabled={busy} className="flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-md border border-amber-600 text-amber-700 text-xs font-semibold disabled:opacity-40">
+              <Icon name="print" size={16} /> Print
+            </button>
+          </div>
+          {status === "shared" && <p className="text-xs text-green-800 mt-2 no-print">Shared successfully via your phone's share sheet.</p>}
+          {status === "downloaded" && <p className="text-xs text-stone-600 mt-2 no-print">PDF downloaded — share it from your Files/Downloads app.</p>}
+          {status === "print-opened" && <p className="text-xs text-stone-600 mt-2 no-print">Opened in a new tab — use your browser/PDF viewer's print button.</p>}
+          {status === "popup-blocked" && <p className="text-xs text-red-700 mt-2 no-print">Your browser blocked the new tab — allow pop-ups for this site and try Print again.</p>}
+          {status === "pdf-unavailable" && <p className="text-xs text-red-700 mt-2 no-print">Couldn't load the PDF tool (needs an internet connection).</p>}
+          {status === "error" && <p className="text-xs text-red-700 mt-2 no-print">Something went wrong — please try again.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [step, setStep] = useState(0);
 
@@ -782,6 +849,7 @@ function App() {
   const [diagOpen, setDiagOpen] = useState(false);
   const [bpmOpen, setBpmOpen] = useState(false);
   const [fsOpen, setFsOpen] = useState(false);
+  const [clafOpen, setClafOpen] = useState(false);
   const [submissions, setSubmissions] = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [submissionsError, setSubmissionsError] = useState("");
@@ -1671,6 +1739,349 @@ function App() {
     }
   }
 
+  const [clafBusy, setClafBusy] = useState(false);
+  const [clafStatus, setClafStatus] = useState("");
+
+  async function downloadLoanApplicationPdf(mode) {
+    setClafBusy(true);
+    setClafStatus("");
+    try {
+      if (!(window.jspdf && window.jspdf.jsPDF)) {
+        await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      }
+      if (!(window.jspdf && window.jspdf.jsPDF)) {
+        setClafStatus("pdf-unavailable");
+        return;
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const left = 15, right = 195, pageBottom = 280;
+      let y = 18;
+      const ensureSpace = (needed = 8) => { if (y + needed > pageBottom) { doc.addPage(); y = 18; } };
+      const sectionHeader = (text) => {
+        ensureSpace(13);
+        doc.setFillColor(31, 59, 51);
+        doc.rect(left - 2, y - 5, right - left + 4, 8, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont(undefined, "bold");
+        doc.text(text, left, y);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, "normal");
+        y += 10;
+      };
+      const subheader = (text) => {
+        ensureSpace(9);
+        doc.setFontSize(10);
+        doc.setFont(undefined, "bold");
+        doc.setTextColor(184, 134, 43);
+        doc.text(text, left, y);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, "normal");
+        y += 7;
+      };
+      const row = (label, value, opts = {}) => {
+        ensureSpace(7);
+        doc.setFontSize(10);
+        doc.setFont(undefined, opts.bold ? "bold" : "normal");
+        doc.text(String(label), left, y);
+        doc.text(String(value === "" || value === undefined || value === null ? "—" : value), right, y, { align: "right" });
+        y += 6.5;
+        doc.setFont(undefined, "normal");
+      };
+      const note = (text) => {
+        ensureSpace(10);
+        doc.setFontSize(8.5);
+        doc.setFont(undefined, "italic");
+        const wrapped = doc.splitTextToSize(text, right - left);
+        doc.text(wrapped, left, y);
+        y += wrapped.length * 4.2 + 3;
+        doc.setFont(undefined, "normal");
+      };
+      const twoRow = (label, y2v, y3v, bold) => {
+        ensureSpace(7);
+        doc.setFontSize(9);
+        doc.setFont(undefined, bold ? "bold" : "normal");
+        doc.text(label, left, y);
+        doc.text(y2v, 148, y, { align: "right" });
+        doc.text(y3v, right, y, { align: "right" });
+        y += 6;
+        doc.setFont(undefined, "normal");
+      };
+      const pageTitle = (title, subtitle) => {
+        doc.setFontSize(15);
+        doc.setFont(undefined, "bold");
+        doc.text(title, 105, y, { align: "center" });
+        y += 6;
+        if (subtitle) {
+          doc.setFontSize(9);
+          doc.setFont(undefined, "italic");
+          doc.setTextColor(184, 134, 43);
+          doc.text(subtitle, 105, y, { align: "center" });
+          doc.setTextColor(0, 0, 0);
+          y += 8;
+        }
+        doc.setFont(undefined, "normal");
+      };
+
+      // ---------- Page 1: Header, SHG & Member ID, Credit History, Proprietor Info ----------
+      pageTitle("COMMON LOAN APPLICATION FORM", "Loan application for loans to individual Women SHG members under DAY-NRLM (IBA-approved format)");
+      row("Bank", identity.bankName);
+      row("Branch", identity.branchName);
+      row("District", identity.district);
+      row("State", identity.state);
+      y += 3;
+      note(`I/We ${identity.memberName || "—"} W/o-D/o-S/o ${identity.fatherHusband || "—"}, resident of Village/GP ${identity.village || "—"}, ${identity.gp || "—"}, Block ${identity.block || "—"}, District ${identity.district || "—"} as a member of SHG group, hereby apply for a loan of Rs. ${inr(calc.totalLoanRequested)}/-`);
+
+      sectionHeader("A. SHG and Member ID");
+      row("SHG Name", identity.shgName);
+      row("DAY NRLM SHG ID", "—");
+      row("SHG Member Name", identity.memberName);
+      row("DAY NRLM Member ID", identity.memberId);
+
+      sectionHeader("B. Member's Credit History with her SHG");
+      row("1. Member of SHG since", identity.dateOfVisit ? `${credit.memberSince || "—"} years (as on ${identity.dateOfVisit})` : `${credit.memberSince || "—"} years`);
+      row("2. No. of times loan taken from SHG in last 3 years", credit.loansLast3Yrs);
+      row("3. Amount of the last loan taken from SHG", inr(num(credit.lastLoanAmount)));
+      row("4. Highest loan amount ever taken from SHG in last 3 years", inr(num(credit.highestLoanEver)));
+      row("5. Current loan amount outstanding with her SHG", inr(num(credit.shgLoanOutstanding)));
+      row("6. Current monthly instalment payable to SHG", inr(num(credit.shgEmi)));
+      row("7. No. of times EMI delayed >30 days in last 12 months", credit.emiDelays);
+      row("8. Cumulative saving of member with SHG", inr(num(credit.cumulativeShgSavings)));
+
+      sectionHeader("C. Information of the Proprietor/Partners");
+      row("Name", identity.memberName);
+      row("Date of Birth", identity.dob);
+      row("Mobile No.", identity.mobile);
+      row("Experience in proposed activity (Yrs)", enterprise.experience);
+      row("Relation with the applicant", "Self (Proprietor)");
+      row("PAN Card", identity.pan);
+      note("Gender, Educational Qualification, and specific ID/Address proof document numbers are not captured by this app — please fill by hand before submission.");
+
+      // ---------- Page 2: Business Information, Registration, Existing Banking ----------
+      doc.addPage();
+      y = 18;
+      sectionHeader("Business Information");
+      row("Name of Unit", enterprise.enterpriseName);
+      row("Describe the Business", enterprise.currentActivity);
+      row("Constitution", "Proprietary");
+      row("Current Business Address", enterprise.businessAddress);
+      row("District / State", enterprise.districtState || `${identity.district || ""}, ${identity.state || ""}`);
+      row("Business Premises", enterprise.premises);
+      row("Mobile No.", identity.mobile);
+      row("Business Activity", tl.newOrReplacement === "New Purchase" ? "Proposed (expansion)" : "Existing");
+      row("Date of Commencement of Business", enterprise.startDate);
+
+      sectionHeader("D. Registration / Certification Details");
+      row("Regn. under MSME (Udyam Portal) URP/UAP", identity.udyam);
+      row("GST Registration", identity.gst || "Not registered");
+
+      sectionHeader("E. Existing Banking / Credit Facilities");
+      row("Savings Bank — Bank/Branch, A/c No.", `${identity.bankName || "—"}, ${identity.sbAccount || "—"}`);
+      row("Cash Credit/OD — Outstanding", inr(num(h3.clBankLoanST)));
+      row("Term Loan — Bank Name, Outstanding, EMI", `${identity.bankName || "—"}, ${inr(num(credit.bankLoanOutstanding))}, EMI ${inr(num(credit.bankLoanEmi))}`);
+      row("Informal Loan — Outstanding, EMI", `${inr(num(credit.informalLoan))}, EMI ${inr(num(credit.informalLoanEmi))}`);
+
+      // ---------- Page 3: Loan Facility Applied For, Enterprise Performance, Household, Machinery ----------
+      doc.addPage();
+      y = 18;
+      sectionHeader("F. Loan Facility Applied For");
+      row("Cash Credit/OD — Purpose", wc.wcPurpose);
+      row("Cash Credit/OD — Amount", inr(calc.wcLoanAmount));
+      row("Cash Credit/OD — Margin Money (own contribution)", inr(num(wc.totalWcRequired) - calc.wcLoanAmount));
+      row("Term Loan — Purpose", tl.tlPurpose);
+      row("Term Loan — Amount", inr(calc.tlAmount));
+      row("Term Loan — Margin Money (own contribution)", inr(calc.totalProjectCost - calc.totalLoanRequested));
+      row("Total Loan Applied For", inr(calc.totalLoanRequested), { bold: true });
+      note("Source of fund for working capital, if Term Loan applied for alone: not applicable — both facilities applied for together.");
+
+      sectionHeader("G. Enterprise/Unit Performance");
+      ensureSpace(8);
+      doc.setFontSize(9);
+      doc.setFont(undefined, "bold");
+      doc.text("Particulars", left, y);
+      doc.text("Last Year (Actual)", 145, y, { align: "right" });
+      doc.text("Projection Year 1", right, y, { align: "right" });
+      y += 6;
+      doc.setFont(undefined, "normal");
+      twoRow("Sales/Revenue", inr(calc.totalSales), inr(calc.salesY2));
+      twoRow("Net Profit", inr(calc.netProfit), inr(calc.netProfitY2));
+
+      sectionHeader("I. Household (HH) Income & Expenditure");
+      row("Family Members (Nos.)", k1.totalMembers);
+      row("Earning Members (Nos.)", k1.earningMembers);
+      row("Annual HH Income", inr(calc.hhIncomeTotalWithBiz));
+      row("Annual HH Expenditure", inr(calc.hhExpTotal));
+
+      sectionHeader("J. Details of Machinery/Equipment or Raw Materials");
+      subheader("Working Capital Loan (Cash Credit/OD)");
+      row("Details of raw materials", wc.wcStockType);
+      subheader("Term Loan");
+      row("Machine/Equipment required", tl.assetDescription);
+      row("Purpose", tl.tlPurpose);
+      row("Name of Supplier", tl.supplierName);
+      row("Total Cost (Machine + Installation + Transport)", inr(num(tl.quotedPrice)));
+      row("My Own Contribution", inr(num(tl.quotedPrice) - calc.tlAmount));
+      row("Loan Required", inr(calc.tlAmount));
+      row("Moratorium Period (Months)", num(tl.moratoriumMonths));
+      row("Total Repayment Period incl. Moratorium (Months)", num(tl.moratoriumMonths) + num(loanF.tenureMonths));
+
+      // ---------- Page 4: Declaration ----------
+      doc.addPage();
+      y = 18;
+      sectionHeader("Declaration");
+      doc.setFontSize(9);
+      const declLines = [
+        "a. I hereby confirm that I have not availed any loan facility from any Bank/FI/NBFC/MFIs for this unit and the purpose mentioned in this loan application.",
+        "b. I hereby authorize the bank to disclose all or any particular details or information relating to my loan accounts with the Bank to any other financial institutions, government or any agency(ies) as may be considered necessary or desirable by the Bank.",
+        "c. I hereby declare that the particulars given above are true and correct to the best of my knowledge and belief.",
+      ];
+      declLines.forEach((line) => {
+        const wrapped = doc.splitTextToSize(line, right - left);
+        ensureSpace(wrapped.length * 4.5 + 4);
+        doc.text(wrapped, left, y);
+        y += wrapped.length * 4.5 + 4;
+      });
+      y += 20;
+      doc.text("Signature / Thumb Impression of the applicant: _____________________", left, y);
+      y += 12;
+      doc.text("Place: _____________________", left, y);
+      y += 10;
+      doc.text(`Date: ${identity.dateOfVisit || "_____________________"}`, left, y);
+
+      // ---------- Annexure-1: Past Performance / Future Estimates ----------
+      doc.addPage();
+      y = 18;
+      sectionHeader("Annexure-1: Additional Information (for loans above ₹2.00 lacs)");
+      subheader("Past Performance / Future Estimates — Projected");
+      row("Sales", inr(calc.salesY2));
+      row("Working Capital Cycle (Months)", (num(wc.wcCycleDays) / 30).toFixed(1));
+      row("Inventory (Stock)", inr(calc.stockValueAuto));
+      row("Debtors", inr(calc.debtorsAuto));
+      row("Creditors", inr(calc.creditorsAuto));
+      row("Promoters' Contribution (Margin Money)", inr(calc.marginMoneyDerived));
+      row("Limits (Total Loan Requested)", inr(calc.totalLoanRequested));
+      y += 4;
+      subheader("Past Performance / Future Estimates");
+      ensureSpace(8);
+      doc.setFontSize(9);
+      doc.setFont(undefined, "bold");
+      doc.text("Particulars", left, y);
+      doc.text("Past Yr-I (Actual)", 105, y, { align: "right" });
+      doc.text("Present Yr (Est.)", 140, y, { align: "right" });
+      doc.text("Proj. Yr I", 168, y, { align: "right" });
+      doc.text("Proj. Yr II", right, y, { align: "right" });
+      y += 6;
+      doc.setFont(undefined, "normal");
+      const fourRow = (label, a, b, c, d, bold) => {
+        ensureSpace(7);
+        doc.setFontSize(9);
+        doc.setFont(undefined, bold ? "bold" : "normal");
+        doc.text(label, left, y);
+        doc.text(a, 105, y, { align: "right" });
+        doc.text(b, 140, y, { align: "right" });
+        doc.text(c, 168, y, { align: "right" });
+        doc.text(d, right, y, { align: "right" });
+        y += 6;
+        doc.setFont(undefined, "normal");
+      };
+      fourRow("Net Sales", inr(calc.totalSales), inr(calc.totalSales), inr(calc.salesY2), inr(calc.salesY3));
+      fourRow("Net Profit", inr(calc.netProfit), inr(calc.netProfit), inr(calc.netProfitY2), inr(calc.netProfitY3));
+      fourRow("Capital (NW)", inr(calc.ownersCapital), inr(calc.ownersCapital), inr(calc.ownersCapitalY2), "—", true);
+      note("Present Year (Estimate) is shown same as Last Year (Actual) since this app does not separately capture an in-progress current-year estimate.");
+
+      // ---------- Attachment: Financial Statements (P&L + Balance Sheet) ----------
+      doc.addPage();
+      y = 18;
+      pageTitle("ATTACHMENT: PROFIT & LOSS ACCOUNT AND BALANCE SHEET", "DAY-NRLM Enterprise Loan — Annexure III Business Analysis");
+
+      sectionHeader("1. Trading & Profit and Loss Account — Last Year (Actual)");
+      row("Sales (Net of Returns)", inr(calc.totalSales));
+      row("Opening Stock", inr(num(openingStock)));
+      row("Add: Purchases", inr(calc.totalPurchases));
+      row("Less: Closing Stock", inr(calc.closingStock));
+      row("Cost of Goods Sold (COGS)", inr(calc.cogs), { bold: true });
+      row("Gross Profit", inr(calc.grossProfit), { bold: true });
+      row("Gross Margin", pct(calc.grossMargin));
+      row("Add: Other Income", inr(calc.totalOtherIncome));
+      row("Add: Government Subsidy/Grant", inr(num(govtSubsidy)));
+      row("Less: Operating & Administrative Expenses", inr(calc.opexOnly));
+      if (num(calc.interestShgFinal) > 0) row("Less: Interest on SHG Loan", inr(calc.interestShgFinal));
+      if (num(calc.interestBankFinal) > 0) row("Less: Interest on Bank Loan", inr(calc.interestBankFinal));
+      if (num(calc.interestInformalFinal) > 0) row("Less: Interest on Informal Loan", inr(calc.interestInformalFinal));
+      if (num(calc.interestOtherBankFinal) > 0) row("Less: Interest on Other Bank Loan/OD", inr(calc.interestOtherBankFinal));
+      row("Net Profit / (Loss)", inr(calc.netProfit), { bold: true });
+
+      sectionHeader("2. Trading & Profit and Loss Account — Projected");
+      ensureSpace(8);
+      doc.setFontSize(9);
+      doc.setFont(undefined, "bold");
+      doc.text("Particulars", left, y);
+      doc.text("Year 2", 148, y, { align: "right" });
+      doc.text("Year 3", right, y, { align: "right" });
+      y += 6;
+      doc.setFont(undefined, "normal");
+      twoRow("Sales", inr(calc.salesY2), inr(calc.salesY3));
+      twoRow("Purchases / COGS", inr(calc.cogsY2), inr(calc.cogsY3));
+      twoRow("Gross Profit", inr(calc.grossProfitY2), inr(calc.grossProfitY3), true);
+      twoRow("Net Profit / (Loss)", inr(calc.netProfitY2), inr(calc.netProfitY3), true);
+
+      sectionHeader("3. Balance Sheet — Last Year (Actual)");
+      subheader("Liabilities");
+      row("Current Liabilities", inr(calc.totalCL));
+      row("Long-Term Liabilities", inr(calc.totalLTL));
+      row("Owner's Capital / Net Worth", inr(calc.ownersCapital));
+      row("TOTAL LIABILITIES", inr(calc.totalLiabilities), { bold: true });
+      y += 2;
+      subheader("Assets");
+      row("Current Assets", inr(calc.totalCA));
+      row("Fixed Assets", inr(calc.totalFA));
+      row("Other Assets", inr(calc.totalOA));
+      row("TOTAL ASSETS", inr(calc.totalAssets), { bold: true });
+      note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
+
+      sectionHeader("4. Balance Sheet — Projected (Year 2, loan applied)");
+      row("Total Assets", inr(calc.totalAssetsY2));
+      row("Total Liabilities", inr(calc.totalLiabilitiesY2));
+      row("Owner's Capital", inr(calc.ownersCapitalY2), { bold: true });
+      if (calc.bsMismatchY2Flag) {
+        note(`BALANCE SHEET MISMATCH: differ by ${inr(Math.abs(calc.bsMismatchY2))} — expected in a simplified projection.`);
+      }
+
+      const blob = doc.output("blob");
+      const fileName = `Loan_Application_${(enterprise.enterpriseName || identity.memberName || "IELA").replace(/\s+/g, "_")}.pdf`;
+      if (mode === "print") {
+        const url = URL.createObjectURL(blob);
+        const win = window.open(url, "_blank");
+        if (!win) {
+          setClafStatus("popup-blocked");
+        } else {
+          setClafStatus("print-opened");
+        }
+        return;
+      }
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      if (mode === "share" && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Common Loan Application Form", text: "Common Loan Application Form for submission to bank" });
+        setClafStatus("shared");
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setClafStatus("downloaded");
+      }
+    } catch (e) {
+      if (!(e && e.name === "AbortError")) setClafStatus("error");
+    } finally {
+      setClafBusy(false);
+    }
+  }
+
   async function submitToBPM() {
     setSubmitStatus("saving");
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -2069,6 +2480,9 @@ function App() {
             </button>
             <button onClick={() => setFsOpen(true)} className="p-2 rounded-md hover:bg-emerald-800" aria-label="Financial Statements for Bank">
               <Icon name="description" size={19} />
+            </button>
+            <button onClick={() => setClafOpen(true)} className="p-2 rounded-md hover:bg-emerald-800" aria-label="Common Loan Application Form">
+              <Icon name="account_balance" size={19} />
             </button>
             <button onClick={() => setDiagOpen(true)} className="relative p-2 rounded-md hover:bg-emerald-800" aria-label="Health Check">
               <Icon name="checklist" size={19} />
@@ -2723,6 +3137,21 @@ function App() {
         onDownload={downloadFinancialStatementPdf}
         busy={fsBusy}
         status={fsStatus}
+      />
+      <LoanApplicationPanel
+        open={clafOpen}
+        onClose={() => setClafOpen(false)}
+        identity={identity}
+        enterprise={enterprise}
+        credit={credit}
+        wc={wc}
+        tl={tl}
+        loanF={loanF}
+        k1={k1}
+        calc={calc}
+        onDownload={downloadLoanApplicationPdf}
+        busy={clafBusy}
+        status={clafStatus}
       />
     </div>
   );

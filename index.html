@@ -2538,6 +2538,12 @@ function App() {
               <button onClick={() => setDiagOpen(true)} className="text-xs px-2 py-1 rounded-full border border-teal-700 text-teal-700 font-semibold whitespace-nowrap">
                 Health Check / स्वास्थ्य जांच {issues.length > 0 ? `(${issues.length})` : ""}
               </button>
+              <button onClick={() => setFsOpen(true)} className="text-xs px-2 py-1 rounded-full border border-emerald-900 text-emerald-900 font-semibold whitespace-nowrap">
+                Financial Statements for Bank / बैंक हेतु वित्तीय विवरण
+              </button>
+              <button onClick={() => setClafOpen(true)} className="text-xs px-2 py-1 rounded-full border border-amber-600 text-amber-700 font-semibold whitespace-nowrap">
+                Common Loan Application / ऋण आवेदन पत्र
+              </button>
               <button
                 onClick={() => {
                   if (window.confirm("Delete ALL data in this app? This cannot be undone. / क्या सभी डेटा हटाना है? इसे वापस नहीं लाया जा सकता।")) deleteAllData();

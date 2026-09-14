@@ -64,11 +64,13 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
-const APP_VERSION = "1.2.2";
+const APP_VERSION = "1.3.0";
 // Change log:
-// v1.2.2 — Added "Financial Statements" and "Loan Application Form" quick-access buttons at the very top of the
-//   Report step (Step 7) — immediately visible without scrolling — plus a second, clearly labeled pair further
-//   down. These were previously only on Step 1, which wasn't where people were looking for them.
+// v1.3.0 — Added fillable fields (Step 1/2) for everything the IBA Common Loan Application Form needs that this
+//   app didn't previously capture: DAY NRLM SHG ID, Gender, Educational Qualification, ID Proof Document + No.,
+//   Address Proof Document + No., PIN Code, Social Category, Constitution, Shops & Establishment Act Regn. No.
+//   These now flow directly into the Common Loan Application PDF instead of being left blank for hand-filling.
+//   Still not captured (P&L-level, not identity-level): Sales Returns, Direct Expenses, Income Tax.
 // Change log:
 // v1.2.0 — Detailed CA-Style Financial Statements & Independent Balance Sheet Validation
 //   - Year 2/Year 3 P&L now properly COGS-based (Opening Stock rolls forward from Last Year's actual Closing
@@ -248,6 +250,7 @@ function SubHeading({ children }) {
 const SHG_FIELDS = [
   { k: "block", l: "Block / ब्लॉक", type: "text" }, { k: "gp", l: "Gram Panchayat / ग्राम पंचायत", type: "text" },
   { k: "village", l: "Village / गांव", type: "text" }, { k: "shgName", l: "Name of SHG / एसएचजी का नाम", type: "text" },
+  { k: "shgId", l: "DAY NRLM SHG ID / डे-एनआरएलएम एसएचजी आईडी", type: "text" },
   { k: "district", l: "District / जिला", type: "text" }, { k: "state", l: "State / राज्य", type: "text" },
   { k: "bankName", l: "Bank Name / बैंक का नाम", type: "text" }, { k: "branchName", l: "Branch Name / शाखा का नाम", type: "text" },
   { k: "ifsc", l: "IFSC Code / आईएफएससी कोड", type: "text" }, { k: "sbAccount", l: "SB Account Number / बचत खाता संख्या", type: "text" },
@@ -255,8 +258,14 @@ const SHG_FIELDS = [
 const MEMBER_FIELDS = [
   { k: "memberName", l: "Member Name / सदस्य का नाम", type: "text" }, { k: "fatherHusband", l: "Father / Husband Name / पिता / पति का नाम", type: "text" },
   { k: "memberId", l: "Member ID / सदस्य आईडी", type: "text" }, { k: "dob", l: "Date of Birth / जन्म तिथि", type: "date" },
+  { k: "gender", l: "Gender / लिंग", type: "select", opts: ["Female", "Male", "Other"] },
+  { k: "eduQualification", l: "Educational Qualification / शैक्षणिक योग्यता", type: "text" },
   { k: "pan", l: "PAN Number / पैन संख्या", type: "text", mandatory: true },
   { k: "mobile", l: "Mobile Number / मोबाइल नंबर", type: "text", mandatory: true },
+  { k: "idProofDocument", l: "ID Proof Document (e.g. Voter ID/Driving Licence/Passport) / पहचान प्रमाण दस्तावेज़", type: "text" },
+  { k: "idProofNo", l: "ID Proof Document No. / पहचान प्रमाण संख्या", type: "text" },
+  { k: "addressProofDocument", l: "Address Proof Document (e.g. Electricity Bill/Voter ID) / पता प्रमाण दस्तावेज़", type: "text" },
+  { k: "addressProofNo", l: "Address Proof Document No. / पता प्रमाण संख्या", type: "text" },
   { k: "udyam", l: "Udyam Registration No. / उद्यम पंजीकरण संख्या", type: "text", mandatory: true }, { k: "gst", l: "GST Registration No. / जीएसटी पंजीकरण संख्या", type: "text", mandatory: true },
   { k: "memberBankName", l: "Bank Name (Member) / बैंक का नाम (सदस्य)", type: "text" }, { k: "memberBranchName", l: "Branch Name (Member) / शाखा का नाम (सदस्य)", type: "text" },
   { k: "memberIfsc", l: "IFSC Code (Member) / आईएफएससी कोड (सदस्य)", type: "text" }, { k: "memberSbAccount", l: "SB Account No. (Member) / बचत खाता संख्या (सदस्य)", type: "text" },
@@ -273,12 +282,16 @@ const DOCUMENTS = [
 
 const ENTERPRISE_FIELDS = [
   { k: "enterpriseName", l: "Enterprise Name / उद्यम का नाम", type: "text" }, { k: "enterpriseType", l: "Type of Enterprise / उद्यम का प्रकार", type: "select", opts: ["Trading", "Manufacturing", "Services"] },
+  { k: "constitution", l: "Constitution / गठन", type: "select", opts: ["Proprietary", "Partnership", "Other"] },
   { k: "activityType", l: "Type of Business Activity / व्यावसायिक गतिविधि का प्रकार", type: "text" }, { k: "startDate", l: "Business Start Date / व्यवसाय प्रारंभ तिथि", type: "date" },
   { k: "currentActivity", l: "Current Business Activity / वर्तमान व्यावसायिक गतिविधि", type: "text" }, { k: "plannedActivity", l: "Planned Activity (post loan) / योजनाबद्ध गतिविधि (ऋण के बाद)", type: "text" },
   { k: "businessAddress", l: "Business Address / व्यवसाय का पता", type: "text" }, { k: "districtState", l: "District / State / जिला / राज्य", type: "text" },
+  { k: "pinCode", l: "PIN Code / पिन कोड", type: "text" },
   { k: "premises", l: "Business Premises / व्यवसाय परिसर", type: "select", opts: ["Owned", "Rented"] }, { k: "monthlyRent", l: "Monthly Rent if Rented / किराए पर होने पर मासिक किराया", type: "number" },
   { k: "experience", l: "Business Experience (Years) / व्यवसाय अनुभव (वर्ष)", type: "number", prefix: "#" }, { k: "employees", l: "No. of Employees / कर्मचारियों की संख्या", type: "number", prefix: "#" },
   { k: "recordsAvailable", l: "Business Records Available / व्यवसाय रिकॉर्ड उपलब्ध", type: "select", opts: ["Yes", "No"] }, { k: "recordsType", l: "Type of Records Maintained / रखे गए रिकॉर्ड का प्रकार", type: "text" },
+  { k: "socialCategory", l: "Social Category / सामाजिक श्रेणी", type: "select", opts: ["SC", "ST", "OBC", "General"] },
+  { k: "shopsActRegn", l: "Regn. under Shops & Establishment Act (No.) / दुकान व स्थापना अधिनियम पंजीकरण संख्या", type: "text" },
 ];
 const CREDIT_HISTORY_FIELDS = [
   { k: "memberSince", l: "Member of SHG Since (Year) / एसएचजी सदस्यता वर्ष", type: "number", prefix: "#" }, { k: "loansLast3Yrs", l: "No. of Loans from SHG (Last 3 Yrs) / एसएचजी से ऋणों की संख्या (पिछले 3 वर्ष)", type: "number", prefix: "#" },
@@ -792,7 +805,7 @@ function LoanApplicationPanel({ open, onClose, identity, enterprise, credit, wc,
         </div>
         <div className="flex-1 overflow-y-auto p-3">
           <Banner tone="warn">
-            Auto-filled from IBA's approved Common Loan Application Form for DAY-NRLM SHG members, using whatever's currently in the app. The Financial Statements (P&L + Balance Sheet) are attached as extra pages in the same PDF. Fields this app doesn't capture (Gender, Education, ID proof numbers, SHG ID, PIN Code) are left blank — fill those by hand before submission.
+            Auto-filled from IBA's approved Common Loan Application Form for DAY-NRLM SHG members, using whatever's currently in the app. Fill Gender, Education, ID/Address Proof, SHG ID, PIN Code, Social Category, and Constitution in Steps 1-2 to complete those fields here too. The Financial Statements (P&L + Balance Sheet) are attached as extra pages in the same PDF. Sales Returns, Direct Expenses, and Income Tax aren't tracked by this app's P&L — leave those blank on the attached statements if applicable.
           </Banner>
 
           <SubHeading>A. SHG & Member ID</SubHeading>
@@ -1839,7 +1852,7 @@ function App() {
 
       sectionHeader("A. SHG and Member ID");
       row("SHG Name", identity.shgName);
-      row("DAY NRLM SHG ID", "—");
+      row("DAY NRLM SHG ID", identity.shgId);
       row("SHG Member Name", identity.memberName);
       row("DAY NRLM Member ID", identity.memberId);
 
@@ -1856,11 +1869,14 @@ function App() {
       sectionHeader("C. Information of the Proprietor/Partners");
       row("Name", identity.memberName);
       row("Date of Birth", identity.dob);
+      row("Gender", identity.gender);
       row("Mobile No.", identity.mobile);
+      row("Educational Qualification", identity.eduQualification);
       row("Experience in proposed activity (Yrs)", enterprise.experience);
       row("Relation with the applicant", "Self (Proprietor)");
+      row("ID Proof Document / No.", `${identity.idProofDocument || "—"} / ${identity.idProofNo || "—"}`);
+      row("Address Proof Document / No.", `${identity.addressProofDocument || "—"} / ${identity.addressProofNo || "—"}`);
       row("PAN Card", identity.pan);
-      note("Gender, Educational Qualification, and specific ID/Address proof document numbers are not captured by this app — please fill by hand before submission.");
 
       // ---------- Page 2: Business Information, Registration, Existing Banking ----------
       doc.addPage();
@@ -1868,16 +1884,19 @@ function App() {
       sectionHeader("Business Information");
       row("Name of Unit", enterprise.enterpriseName);
       row("Describe the Business", enterprise.currentActivity);
-      row("Constitution", "Proprietary");
+      row("Constitution", enterprise.constitution || "Proprietary");
       row("Current Business Address", enterprise.businessAddress);
       row("District / State", enterprise.districtState || `${identity.district || ""}, ${identity.state || ""}`);
+      row("PIN Code", enterprise.pinCode);
       row("Business Premises", enterprise.premises);
       row("Mobile No.", identity.mobile);
       row("Business Activity", tl.newOrReplacement === "New Purchase" ? "Proposed (expansion)" : "Existing");
       row("Date of Commencement of Business", enterprise.startDate);
+      row("Social Category", enterprise.socialCategory);
 
       sectionHeader("D. Registration / Certification Details");
       row("Regn. under MSME (Udyam Portal) URP/UAP", identity.udyam);
+      row("Regn. under Shops & Establishment Act", enterprise.shopsActRegn);
       row("GST Registration", identity.gst || "Not registered");
 
       sectionHeader("E. Existing Banking / Credit Facilities");

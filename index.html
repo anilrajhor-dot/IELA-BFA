@@ -64,13 +64,15 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.4.0";
 // Change log:
-// v1.3.0 — Added fillable fields (Step 1/2) for everything the IBA Common Loan Application Form needs that this
-//   app didn't previously capture: DAY NRLM SHG ID, Gender, Educational Qualification, ID Proof Document + No.,
-//   Address Proof Document + No., PIN Code, Social Category, Constitution, Shops & Establishment Act Regn. No.
-//   These now flow directly into the Common Loan Application PDF instead of being left blank for hand-filling.
-//   Still not captured (P&L-level, not identity-level): Sales Returns, Direct Expenses, Income Tax.
+// v1.4.0 — Raw Materials holding period, separate from Stock (Finished Goods), for Manufacturing and Services.
+//   Trading has no Raw Material stage (buys and resells as-is) — unchanged. Manufacturing and Services now split
+//   the Working Capital Cycle into Raw Material + Stock + Debtors − Suppliers' Credit (still totalling exactly
+//   the days entered in F2, e.g. 90). Raw Material value is auto-calculated the same way as Stock, shown as its
+//   own line in Step 3's Current Assets and Step 2's cycle breakdown, and folded into Closing Stock (so COGS/Net
+//   Profit correctly include total inventory, not just finished goods) for the Last Year Actual and Year 2/3
+//   projections alike.
 // Change log:
 // v1.2.0 — Detailed CA-Style Financial Statements & Independent Balance Sheet Validation
 //   - Year 2/Year 3 P&L now properly COGS-based (Opening Stock rolls forward from Last Year's actual Closing
@@ -319,7 +321,7 @@ const F1_FIELDS = [
 ];
 const F2_FIELDS = [
   { k: "wcPurpose", l: "Purpose of Working Capital Loan / कार्यशील पूंजी ऋण का उद्देश्य", type: "text" }, { k: "wcStockType", l: "Type of Raw Material / Stock / कच्चे माल / स्टॉक का प्रकार", type: "text" },
-  { k: "wcCycleDays", l: "Total Working Capital Cycle (Days) / कुल कार्यशील पूंजी चक्र (दिन)", type: "number", prefix: "#", help: "Net cycle = Stock + Debtors − Suppliers' Credit. The split between Stock/Debtors/Suppliers is set automatically based on Type of Enterprise (Step 2) — Trading turns stock over fast, Manufacturing holds Raw Material/WIP/Finished Goods longer, Services holds little stock. Debtors is the residual so the total always matches exactly. Default 90. / निवल चक्र = स्टॉक + देनदार − आपूर्तिकर्ता उधार। विभाजन उद्यम के प्रकार पर आधारित है।" },
+  { k: "wcCycleDays", l: "Total Working Capital Cycle (Days) / कुल कार्यशील पूंजी चक्र (दिन)", type: "number", prefix: "#", help: "Net cycle = Raw Material + Stock + Debtors − Suppliers' Credit. The split is set automatically based on Type of Enterprise (Step 2) — Trading has no Raw Material stage (buys and resells as-is); Manufacturing holds both Raw Material and Finished Goods; Services holds little finished-goods stock but some Raw Material/consumables. Debtors is the residual so the total always matches exactly. Default 90. / निवल चक्र = कच्चा माल + स्टॉक + देनदार − आपूर्तिकर्ता उधार। विभाजन उद्यम के प्रकार पर आधारित है।" },
 ];
 const F3_FIELDS = [
   { k: "tlPurpose", l: "Purpose of Term Loan / टर्म लोन का उद्देश्य", type: "text" }, { k: "assetDescription", l: "Description of Asset / परिसंपत्ति का विवरण", type: "text" },
@@ -352,21 +354,24 @@ const FA_FIELDS = [
 ];
 const OA_FIELDS = [{ k: "securityDeposits", l: "Security Deposits Paid / जमा की गई सुरक्षा राशि" }, { k: "otherAssets", l: "Other Assets / अन्य परिसंपत्तियां" }];
 
-// How the Working Capital Cycle (Stock + Debtors − Suppliers' Credit) splits by business type — a Trading
-// business turns stock over quickly and sells mostly for cash; Manufacturing holds Raw Material + WIP + Finished
-// Goods for longer; Services barely holds stock and waits mainly on debtor payments. Stock % and Suppliers % of
-// the total cycle are fixed per type; Debtors is always the residual so the net formula stays exact.
+// How the Working Capital Cycle (Raw Material + Stock/Finished Goods + Debtors − Suppliers' Credit) splits by
+// business type. Trading buys and resells without converting anything, so it has no Raw Material stage — just
+// Stock (goods for resale). Manufacturing holds both Raw Material (before conversion) and Finished Goods (after)
+// separately. Services holds little/no finished-goods stock but typically holds some Raw Material/consumables for
+// the service delivered, and waits mainly on debtor payments. All fractions are of the total cycle entered;
+// Debtors is always the residual so the net formula lands exactly on that total (e.g. 90 days).
 const HOLDING_COMPOSITION = {
-  Trading: { stockFrac: 0.55, suppliersFrac: 0.08 },
-  Manufacturing: { stockFrac: 0.70, suppliersFrac: 0.06 },
-  Services: { stockFrac: 0.10, suppliersFrac: 0.05 },
+  Trading: { rmFrac: 0, stockFrac: 0.55, suppliersFrac: 0.08 },
+  Manufacturing: { rmFrac: 0.25, stockFrac: 0.45, suppliersFrac: 0.06 },
+  Services: { rmFrac: 0.15, stockFrac: 0, suppliersFrac: 0.05 },
 };
 function holdingComposition(enterpriseType, totalDays) {
   const comp = HOLDING_COMPOSITION[enterpriseType] || HOLDING_COMPOSITION.Trading;
+  const rawMaterialDays = Math.round(totalDays * comp.rmFrac);
   const stockHoldingDays = Math.round(totalDays * comp.stockFrac);
   const suppliersDays = Math.round(totalDays * comp.suppliersFrac);
-  const debtorsDays = totalDays - stockHoldingDays + suppliersDays;
-  return { stockHoldingDays, suppliersDays, debtorsDays };
+  const debtorsDays = totalDays - rawMaterialDays - stockHoldingDays + suppliersDays;
+  return { rawMaterialDays, stockHoldingDays, suppliersDays, debtorsDays };
 }
 
 const K1_FIELDS = [
@@ -437,7 +442,7 @@ const CHAT_KB = [
   { k: ["balance sheet", "tally", "owner's capital", "owners capital"], a: "Owner's Capital = Total Assets − Total Liabilities other than capital. Because of this formula, the balance sheet always tallies by construction — Owner's Capital is the balancing figure. If it comes out negative, that's a real warning sign (liabilities exceed assets), which shows up in Checks. / स्वामी की पूंजी = कुल परिसंपत्ति − पूंजी के अलावा कुल देनदारियां। इस सूत्र के कारण तुलन पत्र हमेशा मेल खाता है — स्वामी की पूंजी संतुलन आंकड़ा है। यदि यह ऋणात्मक आए, तो यह वास्तविक चेतावनी है (देनदारियां परिसंपत्तियों से अधिक), जो Checks में दिखती है।" },
   { k: ["family labour", "family labor"], a: "Family Labour is the imputed value of unpaid work done by family members in the business — even though no wage is actually paid, it's still a real cost of running the business and should be estimated and included. / पारिवारिक श्रम, व्यवसाय में परिवार के सदस्यों द्वारा बिना वेतन किए गए कार्य का अनुमानित मूल्य है — भले ही कोई वेतन न दिया जाए, यह व्यवसाय चलाने की वास्तविक लागत है और इसे शामिल किया जाना चाहिए।" },
   { k: ["opening stock", "closing stock", "cogs", "cost of goods sold"], a: "Cost of Goods Sold (COGS) = Opening Stock + Purchases − Closing Stock. Opening Stock is what you had at the start of the year (enter it in Step 3); Closing Stock is now auto-calculated from the Stock Holding Period set in Step 2 (F2), so you don't enter it manually. This gives a more accurate Gross Profit than just Sales − Purchases. / बेची गई वस्तुओं की लागत (COGS) = प्रारंभिक स्टॉक + खरीद − अंतिम स्टॉक। अंतिम स्टॉक अब स्टॉक धारण अवधि से स्वतः गणना होता है।" },
-  { k: ["holding period", "stock holding", "debtors period", "suppliers credit period", "working capital cycle", "business type", "90 days"], a: "Just enter one number in F2 (Step 2): Total Working Capital Cycle (default 90 days). The net formula is Stock + Debtors − Suppliers' Credit = your total. How that splits depends on the Type of Enterprise you chose in Step 2 — Trading turns stock over fastest, Manufacturing holds Raw Material/WIP/Finished Goods longest, Services barely holds stock and waits mainly on debtors. Debtors is always the residual, so the total is always exact. / F2 में केवल एक अंक भरें: कुल कार्यशील पूंजी चक्र (डिफ़ॉल्ट 90 दिन)। विभाजन उद्यम के प्रकार पर निर्भर है — ट्रेडिंग, मैन्युफैक्चरिंग या सेवा।" },
+  { k: ["holding period", "stock holding", "debtors period", "suppliers credit period", "working capital cycle", "business type", "raw material", "90 days"], a: "Just enter one number in F2 (Step 2): Total Working Capital Cycle (default 90 days). The net formula is Raw Material + Stock + Debtors − Suppliers' Credit = your total. How that splits depends on the Type of Enterprise you chose in Step 2 — Trading has no Raw Material stage (buys and resells as-is); Manufacturing holds both Raw Material and Finished Goods; Services holds little finished-goods stock but some Raw Material/consumables. Debtors is always the residual, so the total is always exact. / F2 में केवल एक अंक भरें: कुल कार्यशील पूंजी चक्र (डिफ़ॉल्ट 90 दिन)। विभाजन उद्यम के प्रकार पर निर्भर है — ट्रेडिंग में कच्चा माल नहीं होता; मैन्युफैक्चरिंग व सेवा में कच्चा माल भी शामिल है।" },
   { k: ["interest on loan", "interest paid", "interest expense", "interest charged"], a: "Interest paid on SHG, Bank, Informal, and any Other Bank Loan/OD is a required MANUAL entry in the P&L (Step 3, H2) — it's not auto-calculated, because the real interest depends on the balance changing through the year (as EMIs are paid), not just the year-end outstanding figure. A rough 'Outstanding × Rate' reference is shown below each field, but please enter the actual amount from the passbook. If a loan is outstanding but this is left blank, Health Check will flag it. / एसएचजी, बैंक, अनौपचारिक व अन्य बैंक ऋण/ओडी पर ब्याज P&L में एक आवश्यक मैनुअल प्रविष्टि है — स्वतः गणना नहीं होती। खाली छोड़ने पर Health Check चेतावनी देगा।" },
   { k: ["daily sale", "monthly sale"], a: "Fill either one — whichever is easier for you. If you enter Daily Sale, Avg Monthly Sale is calculated automatically (shown in red). If Daily Sale is left blank, a direct Avg Monthly Sale field appears for you to fill instead. / जो भी आपके लिए आसान हो वह भरें। दैनिक बिक्री भरने पर औसत मासिक बिक्री स्वतः गणना होती है (लाल रंग में)। दैनिक बिक्री खाली छोड़ने पर सीधे औसत मासिक बिक्री भरने का विकल्प आता है।" },
   { k: ["growth", "projection", "growth rate"], a: "The growth % you enter for Year 2 and Year 3 projects how much Sales and Operating Expenditure might increase. A realistic rate is usually 10-20% for a stable small business — very high rates (40%+) make the projection unreliable, so keep it conservative unless there's a clear reason (like a big new loan-funded expansion) to expect faster growth. / वर्ष 2 व 3 के लिए भरी गई वृद्धि % यह दर्शाती है कि बिक्री व परिचालन व्यय कितना बढ़ सकता है। एक स्थिर छोटे व्यवसाय के लिए 10-20% यथार्थवादी है — बहुत अधिक दर (40%+) अनुमान को अविश्वसनीय बनाती है, इसलिए स्पष्ट कारण न हो तो सतर्क रहें।" },
@@ -970,27 +975,30 @@ function App() {
     const totalIncome = totalSales + totalOtherIncome + num(govtSubsidy);
 
     // Holding-period-based auto-calculation (standard operating-cycle method): value = (annual flow ÷ 365) × holding days.
-    // The single "Total Working Capital Cycle" (F2) is the NET operating cycle: Stock + Debtors − Suppliers' Credit
-    // (supplier credit finances part of the cycle, so it's subtracted, not added). How those days split between
-    // Stock, Debtors, and Suppliers' Credit depends on the Type of Enterprise (Step 2) — a Trading business turns
-    // stock over fast, Manufacturing holds RM/WIP/FG longer, Services barely holds stock at all. Debtors is always
-    // the residual so the net formula lands exactly on the total entered.
+    // The single "Total Working Capital Cycle" (F2) is the NET operating cycle: Raw Material + Stock (Finished
+    // Goods) + Debtors − Suppliers' Credit (supplier credit finances part of the cycle, so it's subtracted, not
+    // added). How those days split depends on the Type of Enterprise (Step 2) — Trading has no Raw Material stage
+    // (buys and resells as-is), Manufacturing holds both Raw Material and Finished Goods, Services holds little
+    // finished-goods stock but some Raw Material/consumables. Debtors is always the residual so the net formula
+    // lands exactly on the total entered.
     const wcCycleTotal = num(wc.wcCycleDays);
-    const { stockHoldingDays, suppliersDays, debtorsDays } = holdingComposition(enterprise.enterpriseType, wcCycleTotal);
+    const { rawMaterialDays, stockHoldingDays, suppliersDays, debtorsDays } = holdingComposition(enterprise.enterpriseType, wcCycleTotal);
 
     const dailyPurchases = totalPurchases / 365;
     const dailySales = totalSales / 365;
+    const rawMaterialValueAuto = dailyPurchases * rawMaterialDays;
     const stockValueAuto = dailyPurchases * stockHoldingDays;
     const debtorsAuto = dailySales * debtorsDays;
     const creditorsAuto = dailyPurchases * suppliersDays;
 
-    // Closing Stock is auto-calculated from the Stock Holding Period (Step 2, F2) — no need to enter it twice.
+    // Closing Stock (total inventory) is auto-calculated from the holding periods above — Raw Material + Finished
+    // Goods combined, matching standard accounting practice (total inventory on hand, not just finished goods).
     // CRITICAL ACCOUNTING FIX: COGS = Opening Stock + Purchases − Closing Stock; Gross Profit = Sales − COGS;
     // Net Profit is derived FROM Gross Profit (not from Total Purchases directly), so Closing Stock correctly
     // reduces COGS (raising profit) and Opening Stock correctly adds to COGS (reducing profit). Previously Net
     // Profit was computed as Total Income − Total Expenditure (Sales + Other Income + Subsidy − Purchases − Opex
     // − Interest), which silently ignored Opening/Closing Stock entirely — that was a real bug, now corrected.
-    const closingStock = stockValueAuto;
+    const closingStock = stockValueAuto + rawMaterialValueAuto;
     const cogs = num(openingStock) + totalPurchases - closingStock;
     const grossProfit = totalSales - cogs;
     const grossMargin = totalSales ? (grossProfit / totalSales) * 100 : 0;
@@ -1001,7 +1009,7 @@ function App() {
     // H3 balance sheet
     const totalCL = sum(num(credit.shgLoanOutstanding), num(credit.informalLoan), creditorsAuto, ...CL_FIELDS.map((f) => h3[f.k]));
     const totalLTL = sum(num(credit.bankLoanOutstanding), ...LTL_FIELDS.map((f) => h3[f.k]));
-    const totalCA = sum(num(credit.cumulativeShgSavings), num(credit.ownSbSavings), num(credit.fdRd), num(credit.otherSavings), stockValueAuto, debtorsAuto, ...CA_FIELDS.map((f) => h3[f.k]));
+    const totalCA = sum(num(credit.cumulativeShgSavings), num(credit.ownSbSavings), num(credit.fdRd), num(credit.otherSavings), stockValueAuto, rawMaterialValueAuto, debtorsAuto, ...CA_FIELDS.map((f) => h3[f.k]));
     const totalFA = sum(...FA_FIELDS.map((f) => h3[f.k]));
     const totalOA = sum(...OA_FIELDS.map((f) => h3[f.k]));
     const totalAssets = totalCA + totalFA + totalOA;
@@ -1029,13 +1037,13 @@ function App() {
     const dailyPurchasesY2 = purchasesY2 / 365;
     const dailySalesY2 = salesY2 / 365;
     const openingStockY2 = closingStock; // rolls forward from Last Year Actual — single source
-    const closingStockY2 = dailyPurchasesY2 * stockHoldingDays; // Estimated/Auto
+    const closingStockY2 = dailyPurchasesY2 * (stockHoldingDays + rawMaterialDays); // Estimated/Auto — Raw Material + Finished Goods combined
     const cogsY2 = openingStockY2 + purchasesY2 - closingStockY2;
     const grossProfitY2 = salesY2 - cogsY2;
 
     const dailyPurchasesY3 = purchasesY3 / 365;
     const openingStockY3 = closingStockY2; // rolls forward from Year 2 estimate
-    const closingStockY3 = dailyPurchasesY3 * stockHoldingDays; // Estimated/Auto
+    const closingStockY3 = dailyPurchasesY3 * (stockHoldingDays + rawMaterialDays); // Estimated/Auto — Raw Material + Finished Goods combined
     const cogsY3 = openingStockY3 + purchasesY3 - closingStockY3;
     const grossProfitY3 = salesY3 - cogsY3;
 
@@ -1170,7 +1178,7 @@ function App() {
       totalCL, totalLTL, totalCA, totalFA, totalOA, totalAssets, ownersCapital, totalNetWorth, totalLiabilities, balances,
       clOtherThanBankBorrowings, workingCapitalGap, tandonMethod1Mpbf, tandonMethod1Nwc, tandonMethod2Mpbf, tandonMethod2Nwc,
       projectedTurnover, turnoverWcRequirement, turnoverMargin, turnoverBankFinance,
-      tlAmount, wcLoanAmount, totalProjectCost, totalLoanRequested, marginMoneyDerived, stockValueAuto, debtorsAuto, creditorsAuto, stockHoldingDays, debtorsDays, suppliersDays, interestShgAuto, interestBankAuto, interestInformalAuto, interestOtherBankAuto, interestShgFinal, interestBankFinal, interestInformalFinal, interestOtherBankFinal, moratoriumMonths, tlPrincipalAfterMoratorium,
+      tlAmount, wcLoanAmount, totalProjectCost, totalLoanRequested, marginMoneyDerived, stockValueAuto, rawMaterialValueAuto, debtorsAuto, creditorsAuto, rawMaterialDays, stockHoldingDays, debtorsDays, suppliersDays, interestShgAuto, interestBankAuto, interestInformalAuto, interestOtherBankAuto, interestShgFinal, interestBankFinal, interestInformalFinal, interestOtherBankFinal, moratoriumMonths, tlPrincipalAfterMoratorium,
       salesY2, salesY3, opexY2, opexY3, purchasesY2, purchasesY3, netProfitY1, netProfitY2, netProfitY3, annualEmi,
       openingStockY2, closingStockY2, cogsY2, grossProfitY2, openingStockY3, closingStockY3, cogsY3, grossProfitY3,
       hhIncomeTotalWithBiz, hhExpTotal, householdSurplusAnnual, monthlyHHIncome, monthlyHHExpenditure, monthlyHouseholdSurplus, businessProfitLinked,
@@ -1694,7 +1702,7 @@ function App() {
       row("Other Assets (Security Deposits, etc.)", inr(calc.totalOA));
       row("TOTAL ASSETS", inr(calc.totalAssets), { bold: true });
       note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
-      note(`Stock/Debtors/Suppliers' Credit holding period (${enterprise.enterpriseType || "—"}): Stock ${calc.stockHoldingDays}d, Debtors ${calc.debtorsDays}d, Suppliers ${calc.suppliersDays}d.`);
+      note(`${calc.rawMaterialDays > 0 ? "Raw Material/" : ""}Stock/Debtors/Suppliers' Credit holding period (${enterprise.enterpriseType || "—"}): ${calc.rawMaterialDays > 0 ? `Raw Material ${calc.rawMaterialDays}d, ` : ""}Stock ${calc.stockHoldingDays}d, Debtors ${calc.debtorsDays}d, Suppliers ${calc.suppliersDays}d.`);
 
       sectionHeader("4. Balance Sheet — Projected (Year 2, with loan facilities applied)");
       subheader("Liabilities");
@@ -2633,10 +2641,11 @@ function App() {
               <NumInput value={wc.totalWcRequired} onChange={(v) => setWc({ ...wc, totalWcRequired: v })} />
             </Field>
             <Card title="Auto-split of the cycle above (used in Step 3 Balance Sheet)">
-              <Row label="Stock Holding" value={`${calc.stockHoldingDays} days`} auto />
+              {calc.rawMaterialDays > 0 && <Row label="Raw Material Holding" value={`${calc.rawMaterialDays} days`} auto />}
+              <Row label={calc.rawMaterialDays > 0 ? "+ Stock Holding (Finished Goods)" : "Stock Holding"} value={`${calc.stockHoldingDays} days`} auto />
               <Row label="+ Debtors" value={`${calc.debtorsDays} days`} auto />
               <Row label="− Suppliers' Credit" value={`${calc.suppliersDays} days`} auto />
-              <Row label="= Net Working Capital Cycle" value={`${calc.stockHoldingDays + calc.debtorsDays - calc.suppliersDays} days`} bold last auto />
+              <Row label="= Net Working Capital Cycle" value={`${calc.rawMaterialDays + calc.stockHoldingDays + calc.debtorsDays - calc.suppliersDays} days`} bold last auto />
             </Card>
 
             <SubHeading>F3. Term Loan Details / टर्म लोन विवरण (केवल TL ऋण हेतु)</SubHeading>
@@ -2803,7 +2812,7 @@ function App() {
 
             <SubHeading>H3. Balance Sheet / तुलन पत्र</SubHeading>
             <p className="text-xs text-stone-600 mb-2">
-              Stock, Debtors, and Credit from Suppliers are auto-calculated from the Total Working Capital Cycle entered in F2 (Step 2), split by Type of Enterprise: Stock + Debtors − Suppliers' Credit = your total ({calc.stockHoldingDays + calc.debtorsDays - calc.suppliersDays} days currently: Stock {calc.stockHoldingDays}d + Debtors {calc.debtorsDays}d − Suppliers {calc.suppliersDays}d). Adjust the total cycle in Step 2, or the Type of Enterprise, if this doesn't match reality. / स्टॉक, देनदार व आपूर्तिकर्ता उधार, F2 में दिए गए कुल चक्र व उद्यम प्रकार से स्वतः गणना होते हैं।
+              {calc.rawMaterialDays > 0 ? "Raw Materials, Stock, Debtors, and Credit from Suppliers are" : "Stock, Debtors, and Credit from Suppliers are"} auto-calculated from the Total Working Capital Cycle entered in F2 (Step 2), split by Type of Enterprise: {calc.rawMaterialDays > 0 ? "Raw Material + Stock + Debtors − Suppliers' Credit" : "Stock + Debtors − Suppliers' Credit"} = your total ({calc.rawMaterialDays + calc.stockHoldingDays + calc.debtorsDays - calc.suppliersDays} days currently: {calc.rawMaterialDays > 0 ? `Raw Material ${calc.rawMaterialDays}d + ` : ""}Stock {calc.stockHoldingDays}d + Debtors {calc.debtorsDays}d − Suppliers {calc.suppliersDays}d). Adjust the total cycle in Step 2, or the Type of Enterprise, if this doesn't match reality. / स्टॉक, देनदार व आपूर्तिकर्ता उधार, F2 में दिए गए कुल चक्र व उद्यम प्रकार से स्वतः गणना होते हैं।
             </p>
             <p className="text-xs font-semibold text-stone-500 mb-1">A. Current Liabilities</p>
             <NumList
@@ -2840,7 +2849,8 @@ function App() {
                 { label: "Cash in Bank – Own SB A/c (auto, from Section E)", value: inr(num(credit.ownSbSavings)) },
                 { label: "FD / RD with Bank (auto, from Section E)", value: inr(num(credit.fdRd)) },
                 { label: "Other Savings / Investment (auto, from Section E)", value: inr(num(credit.otherSavings)) },
-                { label: `Value of Stock (auto, ${calc.stockHoldingDays} days)`, value: inr(calc.stockValueAuto) },
+                ...(calc.rawMaterialDays > 0 ? [{ label: `Raw Materials (auto, ${calc.rawMaterialDays} days)`, value: inr(calc.rawMaterialValueAuto) }] : []),
+                { label: `Value of Stock${calc.rawMaterialDays > 0 ? " / Finished Goods" : ""} (auto, ${calc.stockHoldingDays} days)`, value: inr(calc.stockValueAuto) },
                 { label: `Debtors (auto, ${calc.debtorsDays} days)`, value: inr(calc.debtorsAuto) },
               ]}
             />

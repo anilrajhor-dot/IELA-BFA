@@ -64,15 +64,13 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.5.0";
 // Change log:
-// v1.4.0 — Raw Materials holding period, separate from Stock (Finished Goods), for Manufacturing and Services.
-//   Trading has no Raw Material stage (buys and resells as-is) — unchanged. Manufacturing and Services now split
-//   the Working Capital Cycle into Raw Material + Stock + Debtors − Suppliers' Credit (still totalling exactly
-//   the days entered in F2, e.g. 90). Raw Material value is auto-calculated the same way as Stock, shown as its
-//   own line in Step 3's Current Assets and Step 2's cycle breakdown, and folded into Closing Stock (so COGS/Net
-//   Profit correctly include total inventory, not just finished goods) for the Last Year Actual and Year 2/3
-//   projections alike.
+// v1.5.0 — Mic (voice input) and speaker (read-aloud) added to every text and number field in the app (via the
+//   shared NumInput/TextInput components, so this covers Identity, Enterprise, Credit History, Financials,
+//   Household — everywhere). Tap the mic to speak a value instead of typing it; the app reads back what it
+//   captured. Tap the speaker at any time to hear the field's current value read aloud. Falls back gracefully
+//   (shows a message, typing still works) on browsers without Web Speech API support.
 // Change log:
 // v1.2.0 — Detailed CA-Style Financial Statements & Independent Balance Sheet Validation
 //   - Year 2/Year 3 P&L now properly COGS-based (Opening Stock rolls forward from Last Year's actual Closing
@@ -149,29 +147,142 @@ function Field({ label, help, mandatory, auto, children }) {
   );
 }
 
+function speakText(text, lang = "en-IN") {
+  if (!window.speechSynthesis || text === "" || text === null || text === undefined) return;
+  try {
+    window.speechSynthesis.cancel(); // stop any speech already in progress
+    const utter = new SpeechSynthesisUtterance(String(text));
+    utter.lang = lang;
+    utter.rate = 0.9;
+    window.speechSynthesis.speak(utter);
+  } catch (e) {
+    // speech synthesis not available — silently skip, typing/reading still works
+  }
+}
+function startVoiceInput(onResult, onError) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    onError && onError();
+    return null;
+  }
+  const rec = new SR();
+  rec.lang = "en-IN";
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  rec.onresult = (e) => onResult(e.results[0][0].transcript);
+  rec.onerror = () => onError && onError();
+  rec.onend = () => onError && onError();
+  rec.start();
+  return rec;
+}
+function parseSpokenNumber(transcript) {
+  // Speech engines usually transcribe clearly-spoken numbers as digits already (e.g. "5,000"); this just
+  // strips commas/currency words and pulls out the numeric part.
+  const cleaned = transcript.replace(/,/g, "").replace(/rupees?|rs\.?/gi, "").trim();
+  const match = cleaned.match(/[\d.]+/);
+  return match ? match[0] : "";
+}
+
 function NumInput({ value, onChange, prefix = "₹" }) {
+  const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState(false);
+  const recRef = useRef(null);
+
+  function toggleMic() {
+    if (listening) {
+      recRef.current && recRef.current.stop();
+      setListening(false);
+      return;
+    }
+    setMicError(false);
+    const rec = startVoiceInput(
+      (transcript) => {
+        const num = parseSpokenNumber(transcript);
+        if (num !== "") {
+          onChange(num);
+          speakText(num);
+        }
+        setListening(false);
+      },
+      () => setListening(false)
+    );
+    if (rec) {
+      recRef.current = rec;
+      setListening(true);
+    } else {
+      setMicError(true);
+    }
+  }
+
   return (
-    <div className="mt-1 flex items-center border border-stone-400 rounded-md bg-white focus-within:ring-2 focus-within:ring-amber-600">
-      <span className="pl-3 text-stone-500 font-mono text-sm">{prefix}</span>
-      <input
-        type="number"
-        value={value}
-        onChange={(e) => onChange(e.target.value === "" ? "" : e.target.value)}
-        className="w-full px-2 py-2 outline-none font-mono text-sm bg-transparent"
-        placeholder="0"
-      />
+    <div>
+      <div className="mt-1 flex items-center border border-stone-400 rounded-md bg-white focus-within:ring-2 focus-within:ring-amber-600">
+        <span className="pl-3 text-stone-500 font-mono text-sm">{prefix}</span>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(e.target.value === "" ? "" : e.target.value)}
+          className="w-full px-2 py-2 outline-none font-mono text-sm bg-transparent min-w-0"
+          placeholder="0"
+        />
+        <button type="button" onClick={toggleMic} className={`px-2 py-2 shrink-0 ${listening ? "text-red-600 animate-pulse" : "text-stone-400"}`} aria-label="Speak to enter value">
+          {listening ? <Icon name="mic_off" size={16} /> : <Icon name="mic" size={16} />}
+        </button>
+        <button type="button" onClick={() => speakText(value !== "" && value !== null && value !== undefined ? value : "empty")} className="pr-3 pl-1 py-2 shrink-0 text-stone-400" aria-label="Read value aloud">
+          <Icon name="volume_up" size={16} />
+        </button>
+      </div>
+      {micError && <p className="text-xs text-red-600 mt-0.5">Voice input isn't supported on this browser — please type instead.</p>}
     </div>
   );
 }
 function TextInput({ value, onChange, placeholder }) {
+  const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState(false);
+  const recRef = useRef(null);
+
+  function toggleMic() {
+    if (listening) {
+      recRef.current && recRef.current.stop();
+      setListening(false);
+      return;
+    }
+    setMicError(false);
+    const rec = startVoiceInput(
+      (transcript) => {
+        onChange(transcript);
+        speakText(transcript);
+        setListening(false);
+      },
+      () => setListening(false)
+    );
+    if (rec) {
+      recRef.current = rec;
+      setListening(true);
+    } else {
+      setMicError(true);
+    }
+  }
+
   return (
-    <input
-      type="text"
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      className="mt-1 w-full px-3 py-2 border border-stone-400 rounded-md bg-white outline-none focus:ring-2 focus:ring-amber-600 text-sm"
-    />
+    <div>
+      <div className="mt-1 flex items-center border border-stone-400 rounded-md bg-white focus-within:ring-2 focus-within:ring-amber-600">
+        <input
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-3 py-2 outline-none text-sm bg-transparent min-w-0"
+        />
+        <button type="button" onClick={toggleMic} className={`px-2 py-2 shrink-0 ${listening ? "text-red-600 animate-pulse" : "text-stone-400"}`} aria-label="Speak to enter value">
+          {listening ? <Icon name="mic_off" size={16} /> : <Icon name="mic" size={16} />}
+        </button>
+        <button type="button" onClick={() => speakText(value || "empty")} className="pr-3 pl-1 py-2 shrink-0 text-stone-400" aria-label="Read value aloud">
+          <Icon name="volume_up" size={16} />
+        </button>
+      </div>
+      {micError && <p className="text-xs text-red-600 mt-0.5">Voice input isn't supported on this browser — please type instead.</p>}
+    </div>
   );
 }
 function DateInput({ value, onChange }) {

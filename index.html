@@ -64,7 +64,15 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.5.1";
+// Change log:
+// v1.5.1 — Email ID is now a mandatory member detail (Step 1: Identity). It is picked up automatically by the
+//   existing mandatory-field Health Check (same mechanism as PAN/Mobile/Udyam/GST), so a missing Email ID now
+//   shows as "Missing mandatory member details" until filled in.
+//   - Corrected the Submissions wording ("shared with BPM" / "visible to anyone using this shared app link")
+//     back to accurately say submissions are saved on-device only, since this standalone HTML file has no
+//     server and cannot actually share data across devices/users — the earlier wording overstated what
+//     Save Submission does. To send a submission to someone else, use Share / Share PDF on the Report step.
 // Change log:
 // v1.5.0 — Mic (voice input) and speaker (read-aloud) added to every text and number field in the app (via the
 //   shared NumInput/TextInput components, so this covers Identity, Enterprise, Credit History, Financials,
@@ -116,13 +124,14 @@ const LocalStore = {
   },
 };
 
+
 // ---------------- generic field system ----------------
 function Help({ text }) {
   const [open, setOpen] = useState(false);
   return (
     <span className="relative inline-block ml-1 align-middle">
       <button type="button" onClick={() => setOpen(!open)} className="text-amber-700 hover:text-amber-600" aria-label="field help">
-        <Icon name="help" size={14} />
+        <Icon name="help" size={14}  />
       </button>
       {open && (
         <div className="absolute z-20 left-0 top-6 w-60 bg-emerald-900 text-stone-50 text-xs rounded-md p-3 shadow-lg leading-relaxed">
@@ -226,10 +235,10 @@ function NumInput({ value, onChange, prefix = "₹" }) {
           placeholder="0"
         />
         <button type="button" onClick={toggleMic} className={`px-2 py-2 shrink-0 ${listening ? "text-red-600 animate-pulse" : "text-stone-400"}`} aria-label="Speak to enter value">
-          {listening ? <Icon name="mic_off" size={16} /> : <Icon name="mic" size={16} />}
+          {listening ? <Icon name="mic_off" size={16}  /> : <Icon name="mic" size={16}  />}
         </button>
         <button type="button" onClick={() => speakText(value !== "" && value !== null && value !== undefined ? value : "empty")} className="pr-3 pl-1 py-2 shrink-0 text-stone-400" aria-label="Read value aloud">
-          <Icon name="volume_up" size={16} />
+          <Icon name="volume_up" size={16}  />
         </button>
       </div>
       {micError && <p className="text-xs text-red-600 mt-0.5">Voice input isn't supported on this browser — please type instead.</p>}
@@ -275,10 +284,10 @@ function TextInput({ value, onChange, placeholder }) {
           className="w-full px-3 py-2 outline-none text-sm bg-transparent min-w-0"
         />
         <button type="button" onClick={toggleMic} className={`px-2 py-2 shrink-0 ${listening ? "text-red-600 animate-pulse" : "text-stone-400"}`} aria-label="Speak to enter value">
-          {listening ? <Icon name="mic_off" size={16} /> : <Icon name="mic" size={16} />}
+          {listening ? <Icon name="mic_off" size={16}  /> : <Icon name="mic" size={16}  />}
         </button>
         <button type="button" onClick={() => speakText(value || "empty")} className="pr-3 pl-1 py-2 shrink-0 text-stone-400" aria-label="Read value aloud">
-          <Icon name="volume_up" size={16} />
+          <Icon name="volume_up" size={16}  />
         </button>
       </div>
       {micError && <p className="text-xs text-red-600 mt-0.5">Voice input isn't supported on this browser — please type instead.</p>}
@@ -334,7 +343,7 @@ function Banner({ tone, children }) {
   };
   return (
     <div className={`border-l-4 rounded-r-md px-3 py-2 text-sm mb-3 flex items-start gap-2 ${styles[tone]}`}>
-      {tone === "ok" ? <Icon name="check_circle" size={16} className="mt-0.5 shrink-0" /> : <Icon name="warning" size={16} className="mt-0.5 shrink-0" />}
+      {tone === "ok" ? <Icon name="check_circle" size={16} className="mt-0.5 shrink-0"  /> : <Icon name="warning" size={16} className="mt-0.5 shrink-0"  />}
       <span>{children}</span>
     </div>
   );
@@ -375,6 +384,7 @@ const MEMBER_FIELDS = [
   { k: "eduQualification", l: "Educational Qualification / शैक्षणिक योग्यता", type: "text" },
   { k: "pan", l: "PAN Number / पैन संख्या", type: "text", mandatory: true },
   { k: "mobile", l: "Mobile Number / मोबाइल नंबर", type: "text", mandatory: true },
+  { k: "email", l: "Email ID / ईमेल आईडी", type: "text", mandatory: true },
   { k: "idProofDocument", l: "ID Proof Document (e.g. Voter ID/Driving Licence/Passport) / पहचान प्रमाण दस्तावेज़", type: "text" },
   { k: "idProofNo", l: "ID Proof Document No. / पहचान प्रमाण संख्या", type: "text" },
   { k: "addressProofDocument", l: "Address Proof Document (e.g. Electricity Bill/Voter ID) / पता प्रमाण दस्तावेज़", type: "text" },
@@ -652,10 +662,10 @@ function ChatWidget({ open, onClose, contextSummary, step, issues }) {
       <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden" style={{ height: "80vh" }}>
         <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Icon name="chat" size={18} className="text-amber-400" />
+            <Icon name="chat" size={18} className="text-amber-400"  />
             <span className="serif font-bold text-sm">Ask the Credit Advisor</span>
           </div>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button onClick={onClose}><Icon name="close" size={18}  /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
           {messages.map((m, i) => (
@@ -678,7 +688,7 @@ function ChatWidget({ open, onClose, contextSummary, step, issues }) {
             className={`px-3 py-2 rounded-md ${listening ? "bg-red-600 text-white animate-pulse" : "bg-stone-200 text-emerald-900"}`}
             aria-label={listening ? "Stop listening" : "Speak your question"}
           >
-            {listening ? <Icon name="mic_off" size={16} /> : <Icon name="mic" size={16} />}
+            {listening ? <Icon name="mic_off" size={16}  /> : <Icon name="mic" size={16}  />}
           </button>
           <input
             value={input}
@@ -688,7 +698,7 @@ function ChatWidget({ open, onClose, contextSummary, step, issues }) {
             className="flex-1 px-3 py-2 rounded-md border border-stone-400 outline-none text-sm"
           />
           <button onClick={() => send()} className="px-3 py-2 rounded-md bg-amber-600 text-white">
-            <Icon name="send" size={16} />
+            <Icon name="send" size={16}  />
           </button>
         </div>
       </div>
@@ -708,10 +718,10 @@ function DiagnosticsPanel({ open, onClose, issues }) {
       <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden" style={{ maxHeight: "80vh" }}>
         <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Icon name="checklist" size={18} className="text-amber-400" />
+            <Icon name="checklist" size={18} className="text-amber-400"  />
             <span className="serif font-bold text-sm">Health Check / स्वास्थ्य जांच</span>
           </div>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button onClick={onClose}><Icon name="close" size={18}  /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
           <p className="text-xs text-stone-600 mb-3">
@@ -748,12 +758,12 @@ function BPMPanel({ open, onClose, submissions, loading, error, onRefresh }) {
       <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden" style={{ maxHeight: "80vh" }}>
         <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Icon name="group" size={18} className="text-amber-400" />
+            <Icon name="group" size={18} className="text-amber-400"  />
             <span className="serif font-bold text-sm">Submissions (saved on this device)</span>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={onRefresh} aria-label="Refresh"><Icon name="refresh" size={16} className={loading ? "animate-spin" : ""} /></button>
-            <button onClick={onClose}><Icon name="close" size={18} /></button>
+            <button onClick={onRefresh} aria-label="Refresh"><Icon name="refresh" size={16} className={loading ? "animate-spin" : ""}  /></button>
+            <button onClick={onClose}><Icon name="close" size={18}  /></button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
@@ -798,10 +808,10 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
       <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden fs-print-fix print-area" style={{ maxHeight: "85vh" }}>
         <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between no-print">
           <div className="flex items-center gap-2">
-            <Icon name="description" size={18} className="text-amber-400" />
+            <Icon name="description" size={18} className="text-amber-400"  />
             <span className="serif font-bold text-sm">Financial Statements for Bank</span>
           </div>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button onClick={onClose}><Icon name="close" size={18}  /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-3 fs-print-fix">
           <Banner tone="warn">Builds automatically from whatever data is currently filled in across all steps — fill in Steps 1-6 first for a complete statement.</Banner>
@@ -886,13 +896,13 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
               disabled={busy}
               className="flex items-center justify-center gap-2 px-3 py-3 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold disabled:opacity-40"
             >
-              {busy ? <Icon name="progress_activity" size={16} className="animate-spin" /> : <Icon name="download" size={16} />} Share / Download PDF
+              {busy ? <Icon name="progress_activity" size={16} className="animate-spin"  /> : <Icon name="download" size={16}  />} Share / Download PDF
             </button>
             <button
               onClick={() => window.print()}
               className="flex items-center justify-center gap-2 px-3 py-3 rounded-md border border-emerald-900 text-emerald-900 text-sm font-semibold"
             >
-              <Icon name="print" size={16} /> Print
+              <Icon name="print" size={16}  /> Print
             </button>
           </div>
           {status === "shared" && <p className="text-xs text-green-800 mt-2 no-print">Shared successfully via your phone's share sheet.</p>}
@@ -914,10 +924,10 @@ function LoanApplicationPanel({ open, onClose, identity, enterprise, credit, wc,
       <div className="relative w-full sm:max-w-md bg-stone-100 rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden fs-print-fix print-area" style={{ maxHeight: "85vh" }}>
         <div className="bg-emerald-900 text-stone-50 px-4 py-3 flex items-center justify-between no-print">
           <div className="flex items-center gap-2">
-            <Icon name="account_balance" size={18} className="text-amber-400" />
+            <Icon name="account_balance" size={18} className="text-amber-400"  />
             <span className="serif font-bold text-sm">Common Loan Application (for Bank)</span>
           </div>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button onClick={onClose}><Icon name="close" size={18}  /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
           <Banner tone="warn">
@@ -951,13 +961,13 @@ function LoanApplicationPanel({ open, onClose, identity, enterprise, credit, wc,
 
           <div className="no-print grid grid-cols-3 gap-2 mt-2">
             <button onClick={() => onDownload("share")} disabled={busy} className="flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-md bg-emerald-900 text-stone-50 text-xs font-semibold disabled:opacity-40">
-              {busy ? <Icon name="progress_activity" size={16} className="animate-spin" /> : <Icon name="share" size={16} />} Share
+              {busy ? <Icon name="progress_activity" size={16} className="animate-spin"  /> : <Icon name="share" size={16}  />} Share
             </button>
             <button onClick={() => onDownload("download")} disabled={busy} className="flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-md border border-emerald-900 text-emerald-900 text-xs font-semibold disabled:opacity-40">
-              <Icon name="download" size={16} /> Download
+              <Icon name="download" size={16}  /> Download
             </button>
             <button onClick={() => onDownload("print")} disabled={busy} className="flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-md border border-amber-600 text-amber-700 text-xs font-semibold disabled:opacity-40">
-              <Icon name="print" size={16} /> Print
+              <Icon name="print" size={16}  /> Print
             </button>
           </div>
           {status === "shared" && <p className="text-xs text-green-800 mt-2 no-print">Shared successfully via your phone's share sheet.</p>}
@@ -2606,7 +2616,7 @@ function App() {
       <div className="bg-emerald-900 text-stone-50 px-5 py-4 no-print">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Icon name="account_balance" size={20} className="text-amber-400" />
+            <Icon name="account_balance" size={20} className="text-amber-400"  />
             <h1 className="serif text-lg font-bold tracking-wide">IELA Credit Advisor</h1>
           </div>
           <div className="flex items-center gap-1">
@@ -2616,18 +2626,18 @@ function App() {
                 loadSubmissions();
               }}
               className="p-2 rounded-md hover:bg-emerald-800"
-              aria-label="Saved Submissions"
+              aria-label="BPM Submissions"
             >
-              <Icon name="group" size={19} />
+              <Icon name="group" size={19}  />
             </button>
             <button onClick={() => setFsOpen(true)} className="p-2 rounded-md hover:bg-emerald-800" aria-label="Financial Statements for Bank">
-              <Icon name="description" size={19} />
+              <Icon name="description" size={19}  />
             </button>
             <button onClick={() => setClafOpen(true)} className="p-2 rounded-md hover:bg-emerald-800" aria-label="Common Loan Application Form">
-              <Icon name="account_balance" size={19} />
+              <Icon name="account_balance" size={19}  />
             </button>
             <button onClick={() => setDiagOpen(true)} className="relative p-2 rounded-md hover:bg-emerald-800" aria-label="Health Check">
-              <Icon name="checklist" size={19} />
+              <Icon name="checklist" size={19}  />
               {issues.length > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-amber-600 text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
                   {issues.length}
@@ -2635,7 +2645,7 @@ function App() {
               )}
             </button>
             <button onClick={() => setChatOpen(true)} className="p-2 rounded-md hover:bg-emerald-800" aria-label="Chat">
-              <Icon name="chat" size={19} />
+              <Icon name="chat" size={19}  />
             </button>
           </div>
         </div>
@@ -3187,33 +3197,33 @@ function App() {
           <>
             <div className="no-print grid grid-cols-2 gap-2 mb-3">
               <button onClick={() => setFsOpen(true)} className="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-md bg-emerald-900 text-stone-50 text-xs font-semibold">
-                <Icon name="description" size={15} /> Financial Statements
+                <Icon name="description" size={15}  /> Financial Statements
               </button>
               <button onClick={() => setClafOpen(true)} className="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-md bg-amber-600 text-white text-xs font-semibold">
-                <Icon name="account_balance" size={15} /> Loan Application Form
+                <Icon name="account_balance" size={15}  /> Loan Application Form
               </button>
             </div>
             <Report identity={identity} enterprise={enterprise} credit={credit} loanF={loanF} wc={wc} tl={tl} openingStock={openingStock} govtSubsidy={govtSubsidy} proj={proj} calc={calc} />
             <div className="mt-4 no-print space-y-2">
               <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">Documents for bank submission</p>
               <button onClick={() => setFsOpen(true)} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold">
-                <Icon name="description" size={16} /> Financial Statements for Bank (full, 8 sections) / बैंक हेतु पूर्ण वित्तीय विवरण
+                <Icon name="description" size={16}  /> Financial Statements for Bank (full, 8 sections) / बैंक हेतु पूर्ण वित्तीय विवरण
               </button>
               <button onClick={() => setClafOpen(true)} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md border-2 border-amber-600 text-amber-700 text-sm font-semibold">
-                <Icon name="account_balance" size={16} /> Common Loan Application (IBA Form) / ऋण आवेदन पत्र
+                <Icon name="account_balance" size={16}  /> Common Loan Application (IBA Form) / ऋण आवेदन पत्र
               </button>
             </div>
             <div className="mt-4 no-print space-y-2">
               <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">P&L & Balance Sheet only (separate statements, for bank submission)</p>
               <div className="grid grid-cols-3 gap-2">
                 <button onClick={() => downloadPLBSPdf("share")} disabled={plbsBusy} className="flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-md bg-emerald-900 text-stone-50 text-xs font-semibold disabled:opacity-40">
-                  {plbsBusy ? <Icon name="progress_activity" size={16} className="animate-spin" /> : <Icon name="share" size={16} />} Share
+                  {plbsBusy ? <Icon name="progress_activity" size={16} className="animate-spin"  /> : <Icon name="share" size={16}  />} Share
                 </button>
                 <button onClick={() => downloadPLBSPdf("download")} disabled={plbsBusy} className="flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-md border border-emerald-900 text-emerald-900 text-xs font-semibold disabled:opacity-40">
-                  <Icon name="download" size={16} /> Download
+                  <Icon name="download" size={16}  /> Download
                 </button>
                 <button onClick={() => downloadPLBSPdf("print")} disabled={plbsBusy} className="flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-md border border-amber-600 text-amber-700 text-xs font-semibold disabled:opacity-40">
-                  <Icon name="print" size={16} /> Print
+                  <Icon name="print" size={16}  /> Print
                 </button>
               </div>
               {plbsStatus === "shared" && <p className="text-xs text-green-800">Shared successfully via your phone's share sheet.</p>}
@@ -3226,10 +3236,10 @@ function App() {
             <div className="mt-4 no-print space-y-2">
               <div className="flex gap-2">
                 <button onClick={shareAsText} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-emerald-900 text-emerald-900 text-sm font-semibold">
-                  <Icon name="share" size={16} /> Share / साझा करें
+                  <Icon name="share" size={16}  /> Share / साझा करें
                 </button>
                 <button onClick={shareAsPdf} disabled={pdfBusy} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-amber-600 text-amber-700 text-sm font-semibold disabled:opacity-40">
-                  {pdfBusy ? <Icon name="progress_activity" size={16} className="animate-spin" /> : <Icon name="download" size={16} />} Share PDF / पीडीएफ साझा करें
+                  {pdfBusy ? <Icon name="progress_activity" size={16} className="animate-spin"  /> : <Icon name="download" size={16}  />} Share PDF / पीडीएफ साझा करें
                 </button>
               </div>
               {shareStatus === "shared" && <p className="text-xs text-green-800">Shared successfully via your phone's share sheet.</p>}
@@ -3240,9 +3250,9 @@ function App() {
 
               <Banner tone="warn">This saves a summary (names, loan figures, DSCR/FOIR, recommendation) on this device only, so you can review past applications later. To send it to a BPM, use Share / Share PDF above.</Banner>
               <button onClick={submitToBPM} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold">
-                <Icon name="send" size={16} /> Save Submission (this device)
+                <Icon name="send" size={16}  /> Save Submission (this device)
               </button>
-              {submitStatus === "saving" && <p className="text-xs text-stone-600 mt-2">Sharing…</p>}
+              {submitStatus === "saving" && <p className="text-xs text-stone-600 mt-2">Saving…</p>}
               {submitStatus === "saved" && <p className="text-xs text-green-800 mt-2">Saved — visible under the Submissions icon (👥) in the header, on this device.</p>}
               {submitStatus === "error" && <p className="text-xs text-red-700 mt-2">Couldn't share — please try again.</p>}
             </div>
@@ -3259,7 +3269,7 @@ function App() {
           <div className="flex gap-3">
             {step > 0 && (
               <button onClick={() => setStep(step - 1)} className="flex items-center gap-1 px-4 py-2 rounded-md border border-stone-400 text-emerald-900 text-sm font-medium">
-                <Icon name="chevron_left" size={16} /> Back / पीछे
+                <Icon name="chevron_left" size={16}  /> Back / पीछे
               </button>
             )}
             {step < STEPS.length - 1 ? (
@@ -3268,11 +3278,11 @@ function App() {
                 disabled={!!hardBlockReason()}
                 className="flex-1 flex items-center justify-center gap-1 px-4 py-2 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold disabled:opacity-40"
               >
-                Next / आगे <Icon name="chevron_right" size={16} />
+                Next / आगे <Icon name="chevron_right" size={16}  />
               </button>
             ) : (
               <button onClick={() => window.print()} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-amber-600 text-white text-sm font-semibold">
-                <Icon name="print" size={16} /> Print Report / रिपोर्ट प्रिंट करें
+                <Icon name="print" size={16}  /> Print Report / रिपोर्ट प्रिंट करें
               </button>
             )}
           </div>
@@ -3284,7 +3294,7 @@ function App() {
         className="no-print fixed bottom-24 right-4 pl-3 pr-4 py-2.5 rounded-full bg-amber-600 text-white shadow-lg flex items-center gap-2 z-30"
         aria-label="Ask a question"
       >
-        <Icon name="chat" size={18} />
+        <Icon name="chat" size={18}  />
         <span className="text-sm font-semibold">Ask a question</span>
       </button>
 
@@ -3495,7 +3505,7 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
       <p className="text-xs text-stone-600 mt-6">Prepared by: _____________________&nbsp;&nbsp;&nbsp;Vitta Sakhi / BPM</p>
       <p className="text-xs text-stone-600 mt-2">Reviewed by: _____________________&nbsp;&nbsp;&nbsp;BPM</p>
       <p className="text-xs text-stone-600 mt-2">Date: _____________________</p>
-      <p className="text-center text-xs text-stone-400 mt-6 pt-3 border-t border-stone-200">Developed by Anil Sharma, former General Manager, Central Bank of India · v{APP_VERSION} — Detailed CA-Style Financial Statements & Independent Balance Sheet Validation</p>
+      <p className="text-center text-xs text-stone-400 mt-6 pt-3 border-t border-stone-200">Developed by Anil Sharma, former General Manager, Central Bank of India · v{APP_VERSION}</p>
     </div>
   );
 }

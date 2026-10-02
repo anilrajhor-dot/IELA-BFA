@@ -64,8 +64,27 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
-const APP_VERSION = "1.5.1";
+const APP_VERSION = "1.6.0";
 // Change log:
+// v1.6.0 — Trading & P&L Account and Balance Sheet now presented in the classic two-column "T" ledger format
+//   small businesses/CAs actually prepare by hand, instead of a vertical statement list. No calculations changed
+//   — this only changes the layout, applied consistently across the on-screen Financial Statements panel, the
+//   Report step, and all three PDFs (Financial Statements, P&L+BS, Common Loan Application attachment pages).
+//   - Trading Account: Dr. (To Opening Stock, To Purchases, To Gross Profit c/d) / Cr. (By Sales, By Closing
+//     Stock). Profit & Loss Account: Dr. (To Expenses itemised by type, To Net Profit c/d) / Cr. (By Gross
+//     Profit b/d, By Other Income, By Govt Subsidy) — Gross Profit is carried down on the credit side of the
+//     P&L Account, exactly as small-business account books show it. Verified against this app's own Sunita
+//     General Store reference figures: Trading Account balances at ₹5,55,628 both sides (Gross Profit ₹1,62,808
+//     falls out as the balancing figure, matching the documented value exactly); P&L Account balances at
+//     ₹1,73,008 both sides (Net Profit ₹77,848 falls out as the balancing figure, matching the corrected net
+//     profit figure from the v1.1.0 accounting fix).
+//   - Balance Sheet now shows a full itemised breakup — Liabilities (Owner's Capital, Long-Term Liabilities,
+//     Current Liabilities) on the left, Assets (Fixed Assets, Other Assets, Current Assets) on the right, each
+//     broken into its line items with a sub-total — instead of only category lump sums. Last Year Actual is
+//     fully itemised; Year 2 Projected shows category totals only (labelled as such), since only totals are
+//     computed for the projection. The two sides' totals are shown independently (not forced equal), so a
+//     genuine Year 2 mismatch stays visible in the table itself, matching the existing "Balance Sheet Mismatch"
+//     warning banner shown alongside it.
 // v1.5.1 — Email ID is now a mandatory member detail (Step 1: Identity). It is picked up automatically by the
 //   existing mandatory-field Health Check (same mechanism as PAN/Mobile/Udyam/GST), so a missing Email ID now
 //   shows as "Missing mandatory member details" until filled in.
@@ -368,6 +387,81 @@ function SubHeading({ children }) {
   return <h3 className="text-xs font-bold uppercase tracking-wide text-amber-600 mt-5 mb-2">{children}</h3>;
 }
 
+// Classic two-column "T" ledger account (Dr. left / Cr. right) — used for the Trading Account and the Profit &
+// Loss Account, exactly as small businesses/CAs prepare them by hand.
+function LedgerAccount({ title, dr, cr }) {
+  const drTotal = dr.reduce((s, r) => s + (r.amount || 0), 0);
+  const crTotal = cr.reduce((s, r) => s + (r.amount || 0), 0);
+  const grand = Math.max(drTotal, crTotal);
+  const Side = ({ side, rows }) => (
+    <div className={side === "dr" ? "border-r border-stone-300" : ""}>
+      <div className="flex justify-between px-2 py-1 bg-stone-200 font-semibold border-b border-stone-300">
+        <span>{side === "dr" ? "Dr." : "Cr."}</span><span>Amount (₹)</span>
+      </div>
+      {rows.map((r, i) => (
+        <div key={i} className={`flex justify-between gap-2 px-2 py-1 ${r.bold ? "font-semibold border-t border-stone-300" : "border-b border-stone-100"}`}>
+          <span className={r.auto ? "text-red-700" : ""}>{side === "dr" ? "To " : "By "}{r.label}</span>
+          <span className="mono shrink-0">{inr(r.amount)}</span>
+        </div>
+      ))}
+      <div className="flex justify-between px-2 py-1 bg-stone-100 font-bold border-t-2 border-stone-400">
+        <span>Total</span><span className="mono">{inr(grand)}</span>
+      </div>
+    </div>
+  );
+  return (
+    <div className="border border-stone-300 rounded-md overflow-hidden mb-3">
+      <div className="bg-emerald-900 text-stone-50 text-center text-xs font-bold py-1.5 serif">{title}</div>
+      <div className="grid grid-cols-2 text-xs">
+        <Side side="dr" rows={dr} />
+        <Side side="cr" rows={cr} />
+      </div>
+    </div>
+  );
+}
+
+// Classic two-column Balance Sheet — Liabilities (left) / Assets (right), each broken into categorised,
+// itemised sections with sub-totals, exactly as small businesses prepare it.
+function BalanceSheetBreakupTable({ title, liabSections, assetSections, note }) {
+  const liabTotal = liabSections.reduce((s, sec) => s + sec.total, 0);
+  const assetTotal = assetSections.reduce((s, sec) => s + sec.total, 0);
+  // NOTE: liabTotal and assetTotal are shown as-is (NOT forced equal) so a genuine mismatch (e.g. the Year 2
+  // projection, where Owner's Capital is rolled forward rather than plugged) is visible here too, consistent
+  // with the separate "Balance Sheet Mismatch" warning shown below this table when they differ.
+  const Side = ({ side, sections, total }) => (
+    <div className={side === "liab" ? "border-r border-stone-300" : ""}>
+      <div className="px-2 py-1 bg-stone-200 font-semibold border-b border-stone-300">{side === "liab" ? "Liabilities" : "Assets"}</div>
+      {sections.map((sec, i) => (
+        <div key={i} className="border-b border-stone-200">
+          <div className="px-2 pt-1 text-stone-500 font-semibold uppercase text-[10px]">{sec.heading}</div>
+          {sec.items.map((it, j) => (
+            <div key={j} className="flex justify-between gap-2 px-2 py-0.5">
+              <span className={it.auto ? "text-red-700" : ""}>{it.label}</span>
+              <span className="mono shrink-0">{inr(it.amount)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between px-2 py-0.5 font-semibold border-t border-stone-100">
+            <span>Total {sec.heading}</span><span className="mono">{inr(sec.total)}</span>
+          </div>
+        </div>
+      ))}
+      <div className={`flex justify-between px-2 py-1 bg-stone-100 font-bold border-t-2 border-stone-400`}>
+        <span>TOTAL {side === "liab" ? "LIABILITIES" : "ASSETS"}</span><span className="mono">{inr(total)}</span>
+      </div>
+    </div>
+  );
+  return (
+    <div className="border border-stone-300 rounded-md overflow-hidden mb-3">
+      <div className="bg-emerald-900 text-stone-50 text-center text-xs font-bold py-1.5 serif">{title}</div>
+      <div className="grid grid-cols-2 text-xs">
+        <Side side="liab" sections={liabSections} total={liabTotal} />
+        <Side side="asset" sections={assetSections} total={assetTotal} />
+      </div>
+      {note && <p className="text-[11px] text-stone-500 px-2 py-1 border-t border-stone-200">{note}</p>}
+    </div>
+  );
+}
+
 // ---------------- field definitions (mirrors the specimen sheets) ----------------
 const SHG_FIELDS = [
   { k: "block", l: "Block / ब्लॉक", type: "text" }, { k: "gp", l: "Gram Panchayat / ग्राम पंचायत", type: "text" },
@@ -474,6 +568,110 @@ const FA_FIELDS = [
   { k: "furniture", l: "Furniture & Fixtures / फर्नीचर व फिक्सचर" }, { k: "vehicle", l: "Two-Wheeler / Delivery Vehicle / दोपहिया / डिलीवरी वाहन" }, { k: "otherFA", l: "Other Fixed Assets / अन्य स्थायी परिसंपत्तियां" },
 ];
 const OA_FIELDS = [{ k: "securityDeposits", l: "Security Deposits Paid / जमा की गई सुरक्षा राशि" }, { k: "otherAssets", l: "Other Assets / अन्य परिसंपत्तियां" }];
+
+// ---------------- Classic ledger-format builders (single source — feeds on-screen panels, Report, both PDFs) ----------------
+// Traditional Trading & Profit and Loss Account exactly as small Indian businesses/CAs prepare it in two separate
+// "T" accounts: Dr. (left, "To ...") and Cr. (right, "By ..."). Gross Profit is carried down ("c/d") on the Dr
+// side of the Trading Account (the balancing figure) and brought down ("b/d") on the Cr side of the P&L Account —
+// this is why it appears on the right in the P&L Account, as requested. No new calculations — reuses the existing
+// calc figures (COGS/GP/NP) exactly as already computed; this only changes how they are laid out.
+function buildTradingPLLedger(calc, openingStock, govtSubsidy) {
+  const trading = {
+    dr: [
+      { label: "Opening Stock", amount: num(openingStock) },
+      { label: "Purchases", amount: calc.totalPurchases, auto: true },
+      { label: "Gross Profit c/d", amount: calc.grossProfit, bold: true, auto: true },
+    ],
+    cr: [
+      { label: "Sales", amount: calc.totalSales, auto: true },
+      { label: "Closing Stock", amount: calc.closingStock, auto: true },
+    ],
+  };
+  const dr = [];
+  if (calc.opexOnly > 0) dr.push({ label: "Operating & Administrative Expenses", amount: calc.opexOnly, auto: true });
+  if (num(calc.interestShgFinal) > 0) dr.push({ label: "Interest on SHG Loan", amount: calc.interestShgFinal, auto: true });
+  if (num(calc.interestBankFinal) > 0) dr.push({ label: "Interest on Bank Loan", amount: calc.interestBankFinal, auto: true });
+  if (num(calc.interestInformalFinal) > 0) dr.push({ label: "Interest on Informal Loan", amount: calc.interestInformalFinal, auto: true });
+  if (num(calc.interestOtherBankFinal) > 0) dr.push({ label: "Interest on Other Bank Loan/OD", amount: calc.interestOtherBankFinal, auto: true });
+  dr.push({ label: "Net Profit c/d", amount: calc.netProfit, bold: true, auto: true });
+  const cr = [{ label: "Gross Profit b/d", amount: calc.grossProfit, bold: true, auto: true }];
+  if (calc.totalOtherIncome > 0) cr.push({ label: "Other Income", amount: calc.totalOtherIncome, auto: true });
+  if (num(govtSubsidy) > 0) cr.push({ label: "Government Subsidy/Grant", amount: num(govtSubsidy) });
+  return { trading, pl: { dr, cr } };
+}
+
+// Classic small-business Balance Sheet: Liabilities (left) / Assets (right), each broken into categorised,
+// itemised sections with sub-totals — exactly the format most small traders' account books use, rather than a
+// single lump total per category. Items with a zero amount are omitted for brevity. No new calculations — reuses
+// the existing totalCL/totalLTL/totalFA/totalOA/totalCA/ownersCapital figures exactly as already computed.
+function shortLabel(l) { return l.split(" / ")[0]; }
+function buildBalanceSheetBreakup(calc, credit, h3) {
+  const liabSections = [
+    { heading: "Owner's Capital / Net Worth", items: [], total: calc.ownersCapital },
+    {
+      heading: "Long-Term Liabilities",
+      items: [
+        { label: "Bank Term Loan Outstanding", amount: num(credit.bankLoanOutstanding) },
+        ...LTL_FIELDS.map((f) => ({ label: shortLabel(f.l), amount: num(h3[f.k]) })),
+      ].filter((x) => x.amount > 0),
+      total: calc.totalLTL,
+    },
+    {
+      heading: "Current Liabilities",
+      items: [
+        { label: "SHG Loan Outstanding", amount: num(credit.shgLoanOutstanding) },
+        { label: "Informal Loan (Family/Friends)", amount: num(credit.informalLoan) },
+        { label: "Trade Creditors (auto)", amount: calc.creditorsAuto, auto: true },
+        ...CL_FIELDS.map((f) => ({ label: shortLabel(f.l), amount: num(h3[f.k]) })),
+      ].filter((x) => x.amount > 0),
+      total: calc.totalCL,
+    },
+  ];
+  const assetSections = [
+    {
+      heading: "Fixed Assets",
+      items: FA_FIELDS.map((f) => ({ label: shortLabel(f.l), amount: num(h3[f.k]) })).filter((x) => x.amount > 0),
+      total: calc.totalFA,
+    },
+    {
+      heading: "Other Assets",
+      items: OA_FIELDS.map((f) => ({ label: shortLabel(f.l), amount: num(h3[f.k]) })).filter((x) => x.amount > 0),
+      total: calc.totalOA,
+    },
+    {
+      heading: "Current Assets",
+      items: [
+        { label: "Cash in Hand", amount: num(h3.cashInHand) },
+        { label: "Cumulative SHG Savings", amount: num(credit.cumulativeShgSavings) },
+        { label: "Own Savings Bank Balance", amount: num(credit.ownSbSavings) },
+        { label: "Fixed / Recurring Deposits", amount: num(credit.fdRd) },
+        { label: "Other Savings", amount: num(credit.otherSavings) },
+        { label: "Closing Stock (auto)", amount: calc.closingStock, auto: true },
+        { label: "Debtors / Receivables (auto)", amount: calc.debtorsAuto, auto: true },
+        { label: "Advance Paid to Suppliers", amount: num(h3.advancePaidSuppliers) },
+        { label: "Other Current Assets", amount: num(h3.otherCA) },
+      ].filter((x) => x.amount > 0),
+      total: calc.totalCA,
+    },
+  ];
+  return { liabSections, assetSections };
+}
+// Year 2 projection only has category-level totals (ownersCapitalY2/ltlY2/clY2/faY2/oaY2/caY2), not itemised
+// sub-figures, so it uses the same two-column Liabilities/Assets layout with totals only per category.
+function buildBalanceSheetBreakupY2(calc) {
+  return {
+    liabSections: [
+      { heading: "Owner's Capital / Net Worth (rolled forward)", items: [], total: calc.ownersCapitalY2 },
+      { heading: "Long-Term Liabilities", items: [], total: calc.ltlY2 },
+      { heading: "Current Liabilities", items: [], total: calc.clY2 },
+    ],
+    assetSections: [
+      { heading: "Fixed Assets", items: [], total: calc.faY2 },
+      { heading: "Other Assets", items: [], total: calc.oaY2 },
+      { heading: "Current Assets", items: [], total: calc.caY2 },
+    ],
+  };
+}
 
 // How the Working Capital Cycle (Raw Material + Stock/Finished Goods + Debtors − Suppliers' Credit) splits by
 // business type. Trading buys and resells without converting anything, so it has no Raw Material stage — just
@@ -800,8 +998,11 @@ function BPMPanel({ open, onClose, submissions, loading, error, onRefresh }) {
 }
 
 // ---------------- Financial Statements for Bank (separate menu, on-screen + PDF) ----------------
-function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, proj, openingStock, govtSubsidy, calc, onDownload, busy, status }) {
+function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, proj, openingStock, govtSubsidy, credit, h3, calc, onDownload, busy, status }) {
   if (!open) return null;
+  const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+  const bsActual = buildBalanceSheetBreakup(calc, credit, h3);
+  const bsY2 = buildBalanceSheetBreakupY2(calc);
   return (
     <div className="fixed inset-0 z-40 fs-print-fix flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black bg-opacity-30 no-print" onClick={onClose} />
@@ -823,37 +1024,23 @@ function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, 
             <Row label="Bank & Branch" value={`${identity.bankName || "—"}, ${identity.branchName || "—"}`} last />
           </Card>
 
-          <SubHeading>2. Trading & P&L — Last Year (Actual)</SubHeading>
-          <Card>
-            <Row label="Sales (Net of Returns)" value={inr(calc.totalSales)} auto />
-            <Row label="Opening Stock" value={inr(num(openingStock))} />
-            <Row label="Add: Purchases" value={inr(calc.totalPurchases)} auto />
-            <Row label="Less: Closing Stock" value={inr(calc.closingStock)} auto />
-            <Row label="Cost of Goods Sold (COGS)" value={inr(calc.cogs)} bold auto />
-            <Row label="Gross Profit" value={inr(calc.grossProfit)} bold auto />
-            <Row label="Add: Other Income" value={inr(calc.totalOtherIncome)} auto />
-            <Row label="Add: Government Subsidy/Grant" value={inr(num(govtSubsidy))} />
-            <Row label="Less: Operating & Administrative Expenses" value={inr(calc.opexOnly)} auto />
-            {num(calc.interestShgFinal) > 0 && <Row label="Less: Interest on SHG Loan" value={inr(calc.interestShgFinal)} auto />}
-            {num(calc.interestBankFinal) > 0 && <Row label="Less: Interest on Bank Loan" value={inr(calc.interestBankFinal)} auto />}
-            {num(calc.interestInformalFinal) > 0 && <Row label="Less: Interest on Informal Loan" value={inr(calc.interestInformalFinal)} auto />}
-            {num(calc.interestOtherBankFinal) > 0 && <Row label="Less: Interest on Other Bank Loan/OD" value={inr(calc.interestOtherBankFinal)} auto />}
-            <Row label="Net Profit / (Loss)" value={inr(calc.netProfit)} bold auto last />
-          </Card>
+          <SubHeading>2. Trading Account — Last Year (Actual)</SubHeading>
+          <LedgerAccount title="Trading Account" dr={ledger.trading.dr} cr={ledger.trading.cr} />
+
+          <SubHeading>Profit & Loss Account — Last Year (Actual)</SubHeading>
+          <LedgerAccount title="Profit & Loss Account" dr={ledger.pl.dr} cr={ledger.pl.cr} />
+          <p className="text-[11px] text-stone-500 -mt-2 mb-3">Gross Margin {pct(calc.grossMargin)} · Net Margin {pct(calc.netMargin)}</p>
 
           <SubHeading>3. Balance Sheet — Last Year (Actual)</SubHeading>
-          <Card>
-            <Row label="Total Assets" value={inr(calc.totalAssets)} auto />
-            <Row label="Total Liabilities" value={inr(calc.totalLiabilities)} auto />
-            <Row label="Owner's Capital" value={inr(calc.ownersCapital)} bold auto last />
-          </Card>
+          <BalanceSheetBreakupTable title="Balance Sheet (Last Year Actual)" liabSections={bsActual.liabSections} assetSections={bsActual.assetSections} />
 
           <SubHeading>Balance Sheet — Projected (Year 2, loan applied)</SubHeading>
-          <Card>
-            <Row label="Total Assets" value={inr(calc.totalAssetsY2)} auto />
-            <Row label="Total Liabilities" value={inr(calc.totalLiabilitiesY2)} auto />
-            <Row label="Owner's Capital" value={inr(calc.ownersCapitalY2)} bold auto last />
-          </Card>
+          <BalanceSheetBreakupTable
+            title="Balance Sheet (Year 2 Projected)"
+            liabSections={bsY2.liabSections}
+            assetSections={bsY2.assetSections}
+            note="Category totals only — Year 2 is a simplified one-year projection, not itemised like the Actual year above."
+          />
           {calc.bsMismatchY2Flag && (
             <Banner tone="warn">Balance Sheet Mismatch (Year 2): off by {inr(Math.abs(calc.bsMismatchY2))} — expected in a simplified projection; see Health Check for details.</Banner>
           )}
@@ -1508,6 +1695,112 @@ function App() {
         y += 6;
         doc.setFont(undefined, "normal");
       };
+      const colMidX = (left + right) / 2;
+      const ledgerTable = (title, dr, cr) => {
+        const drTotal = dr.reduce((s, r) => s + (r.amount || 0), 0);
+        const crTotal = cr.reduce((s, r) => s + (r.amount || 0), 0);
+        const grand = Math.max(drTotal, crTotal);
+        const colLeftLabelX = left, colLeftAmtX = colMidX - 4, colRightLabelX = colMidX + 4, colRightAmtX = right;
+        const labelW = colMidX - 4 - left - 24;
+        ensureSpace(14);
+        doc.setFillColor(31, 59, 51);
+        doc.rect(left - 2, y - 5, right - left + 4, 7, "F");
+        doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.setFont(undefined, "bold");
+        doc.text(title, 105, y, { align: "center" });
+        doc.setTextColor(0, 0, 0); doc.setFont(undefined, "normal");
+        y += 8;
+        const tableStartY = y - 5;
+        doc.setFontSize(8.5); doc.setFont(undefined, "bold");
+        doc.text("Dr.", colLeftLabelX, y); doc.text("Amount (₹)", colLeftAmtX, y, { align: "right" });
+        doc.text("Cr.", colRightLabelX, y); doc.text("Amount (₹)", colRightAmtX, y, { align: "right" });
+        doc.setFont(undefined, "normal");
+        y += 5;
+        const maxLen = Math.max(dr.length, cr.length);
+        for (let i = 0; i < maxLen; i++) {
+          const dItem = dr[i], cItem = cr[i];
+          const dLines = dItem ? doc.splitTextToSize(`To ${dItem.label}`, labelW) : [];
+          const cLines = cItem ? doc.splitTextToSize(`By ${cItem.label}`, labelW) : [];
+          const lineCount = Math.max(dLines.length, cLines.length, 1);
+          ensureSpace(lineCount * 4.3 + 2);
+          doc.setFontSize(8);
+          if (dItem) { doc.setFont(undefined, dItem.bold ? "bold" : "normal"); doc.text(dLines, colLeftLabelX, y); doc.text(inr(dItem.amount), colLeftAmtX, y, { align: "right" }); }
+          if (cItem) { doc.setFont(undefined, cItem.bold ? "bold" : "normal"); doc.text(cLines, colRightLabelX, y); doc.text(inr(cItem.amount), colRightAmtX, y, { align: "right" }); }
+          doc.setFont(undefined, "normal");
+          y += lineCount * 4.3 + 1.5;
+        }
+        ensureSpace(7);
+        doc.setDrawColor(120, 120, 120);
+        doc.line(colLeftLabelX, y - 1, colRightAmtX, y - 1);
+        y += 3.5;
+        doc.setFont(undefined, "bold"); doc.setFontSize(8.5);
+        doc.text("Total", colLeftLabelX, y); doc.text(inr(grand), colLeftAmtX, y, { align: "right" });
+        doc.text("Total", colRightLabelX, y); doc.text(inr(grand), colRightAmtX, y, { align: "right" });
+        doc.setFont(undefined, "normal");
+        const tableEndY = y + 1.5;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(colMidX, tableStartY, colMidX, tableEndY);
+        y += 6;
+      };
+      const bsTable = (title, liabSections, assetSections, noteText) => {
+        const liabTotal = liabSections.reduce((s, sec) => s + sec.total, 0);
+        const assetTotal = assetSections.reduce((s, sec) => s + sec.total, 0);
+        const colLeftLabelX = left, colLeftAmtX = colMidX - 4, colRightLabelX = colMidX + 4, colRightAmtX = right;
+        const labelW = colMidX - 4 - left - 22;
+        ensureSpace(14);
+        doc.setFillColor(31, 59, 51);
+        doc.rect(left - 2, y - 5, right - left + 4, 7, "F");
+        doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.setFont(undefined, "bold");
+        doc.text(title, 105, y, { align: "center" });
+        doc.setTextColor(0, 0, 0); doc.setFont(undefined, "normal");
+        y += 8;
+        const tableStartY = y - 5;
+        doc.setFontSize(8.5); doc.setFont(undefined, "bold");
+        doc.text("Liabilities", colLeftLabelX, y);
+        doc.text("Assets", colRightLabelX, y);
+        doc.setFont(undefined, "normal");
+        y += 5;
+        const maxSec = Math.max(liabSections.length, assetSections.length);
+        for (let i = 0; i < maxSec; i++) {
+          const lSec = liabSections[i], aSec = assetSections[i];
+          ensureSpace(6);
+          doc.setFontSize(7.5); doc.setFont(undefined, "bold");
+          if (lSec) doc.text(lSec.heading.toUpperCase(), colLeftLabelX, y);
+          if (aSec) doc.text(aSec.heading.toUpperCase(), colRightLabelX, y);
+          doc.setFont(undefined, "normal");
+          y += 4;
+          const maxItems = Math.max(lSec ? lSec.items.length : 0, aSec ? aSec.items.length : 0);
+          for (let j = 0; j < maxItems; j++) {
+            const lIt = lSec && lSec.items[j], aIt = aSec && aSec.items[j];
+            const lLines = lIt ? doc.splitTextToSize(lIt.label, labelW) : [];
+            const aLines = aIt ? doc.splitTextToSize(aIt.label, labelW) : [];
+            const lineCount = Math.max(lLines.length, aLines.length, 1);
+            ensureSpace(lineCount * 4 + 1);
+            doc.setFontSize(7.5);
+            if (lIt) { doc.text(lLines, colLeftLabelX, y); doc.text(inr(lIt.amount), colLeftAmtX, y, { align: "right" }); }
+            if (aIt) { doc.text(aLines, colRightLabelX, y); doc.text(inr(aIt.amount), colRightAmtX, y, { align: "right" }); }
+            y += lineCount * 4 + 1;
+          }
+          ensureSpace(5);
+          doc.setFont(undefined, "bold"); doc.setFontSize(7.5);
+          if (lSec) { doc.text(`Total ${lSec.heading}`, colLeftLabelX, y); doc.text(inr(lSec.total), colLeftAmtX, y, { align: "right" }); }
+          if (aSec) { doc.text(`Total ${aSec.heading}`, colRightLabelX, y); doc.text(inr(aSec.total), colRightAmtX, y, { align: "right" }); }
+          doc.setFont(undefined, "normal");
+          y += 5;
+        }
+        ensureSpace(7);
+        doc.setDrawColor(120, 120, 120);
+        doc.line(colLeftLabelX, y - 1, colRightAmtX, y - 1);
+        y += 3.5;
+        doc.setFont(undefined, "bold"); doc.setFontSize(8.5);
+        doc.text("TOTAL LIABILITIES", colLeftLabelX, y); doc.text(inr(liabTotal), colLeftAmtX, y, { align: "right" });
+        doc.text("TOTAL ASSETS", colRightLabelX, y); doc.text(inr(assetTotal), colRightAmtX, y, { align: "right" });
+        doc.setFont(undefined, "normal");
+        const tableEndY = y + 1.5;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(colMidX, tableStartY, colMidX, tableEndY);
+        y += 6;
+        if (noteText) note(noteText);
+      };
 
       doc.setFontSize(16);
       doc.setFont(undefined, "bold");
@@ -1533,43 +1826,30 @@ function App() {
       y += 4;
 
       sectionHeader("2. Trading & Profit and Loss Account — Last Year (Actual)");
-      row("Sales (Net of Returns)", inr(calc.totalSales));
-      row("Opening Stock", inr(num(openingStock)));
-      row("Add: Purchases", inr(calc.totalPurchases));
-      row("Less: Closing Stock", inr(calc.closingStock));
-      row("Cost of Goods Sold (COGS)", inr(calc.cogs), { bold: true });
-      row("Gross Profit", inr(calc.grossProfit), { bold: true });
-      row("Gross Margin", pct(calc.grossMargin));
-      row("Add: Other Income", inr(calc.totalOtherIncome));
-      row("Add: Government Subsidy/Grant", inr(num(govtSubsidy)));
-      row("Less: Operating & Administrative Expenses", inr(calc.opexOnly));
-      if (num(calc.interestShgFinal) > 0) row("Less: Interest on SHG Loan", inr(calc.interestShgFinal));
-      if (num(calc.interestBankFinal) > 0) row("Less: Interest on Bank Loan", inr(calc.interestBankFinal));
-      if (num(calc.interestInformalFinal) > 0) row("Less: Interest on Informal Loan", inr(calc.interestInformalFinal));
-      if (num(calc.interestOtherBankFinal) > 0) row("Less: Interest on Other Bank Loan/OD", inr(calc.interestOtherBankFinal));
-      row("Net Profit / (Loss)", inr(calc.netProfit), { bold: true });
-      row("Net Margin", pct(calc.netMargin));
-      note(`Includes actual interest paid — SHG ${inr(calc.interestShgFinal)}, Bank ${inr(calc.interestBankFinal)}, Informal ${inr(calc.interestInformalFinal)}.`);
+      {
+        const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+        ledgerTable("Trading Account", ledger.trading.dr, ledger.trading.cr);
+        ledgerTable("Profit & Loss Account", ledger.pl.dr, ledger.pl.cr);
+        note(`Gross Margin ${pct(calc.grossMargin)} · Net Margin ${pct(calc.netMargin)} · Includes actual interest paid — SHG ${inr(calc.interestShgFinal)}, Bank ${inr(calc.interestBankFinal)}, Informal ${inr(calc.interestInformalFinal)}.`);
+      }
 
       sectionHeader("3. Balance Sheet — Last Year (Actual)");
-      row("Total Current Liabilities", inr(calc.totalCL));
-      row("Total Long-Term Liabilities", inr(calc.totalLTL));
-      row("Owner's Capital / Net Worth", inr(calc.ownersCapital));
-      row("TOTAL LIABILITIES", inr(calc.totalLiabilities), { bold: true });
-      y += 2;
-      row("Total Current Assets", inr(calc.totalCA));
-      row("Total Fixed Assets", inr(calc.totalFA));
-      row("Total Other Assets", inr(calc.totalOA));
-      row("TOTAL ASSETS", inr(calc.totalAssets), { bold: true });
-      note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
-      y += 1;
-      row("Balance Sheet — Projected (Year 2, loan applied): Total Assets", inr(calc.totalAssetsY2));
-      row("Balance Sheet — Projected (Year 2): Total Liabilities", inr(calc.totalLiabilitiesY2));
-      row("Balance Sheet — Projected (Year 2): Owner's Capital", inr(calc.ownersCapitalY2), { bold: true });
-      if (calc.bsMismatchY2Flag) {
-        note(`BALANCE SHEET MISMATCH (Year 2): Assets and Liabilities+Capital differ by ${inr(Math.abs(calc.bsMismatchY2))} — expected in a simplified 1-year projection (Capital is rolled forward from Last Year, not plugged). The Last Year Actual sheet above is unaffected.`);
-      } else {
-        note(`Year 2 estimate includes the recommended Term Loan (${inr(calc.recommendedTermLoan)}) as newly disbursed and the new asset it funds; existing loan balances carried forward unchanged.`);
+      {
+        const bsActual = buildBalanceSheetBreakup(calc, credit, h3);
+        bsTable("Balance Sheet (Last Year Actual)", bsActual.liabSections, bsActual.assetSections);
+        note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
+        const bsY2 = buildBalanceSheetBreakupY2(calc);
+        bsTable(
+          "Balance Sheet (Year 2 Projected, loan applied)",
+          bsY2.liabSections,
+          bsY2.assetSections,
+          "Category totals only — Year 2 is a simplified one-year projection, not itemised like the Actual year above."
+        );
+        if (calc.bsMismatchY2Flag) {
+          note(`BALANCE SHEET MISMATCH (Year 2): Assets and Liabilities+Capital differ by ${inr(Math.abs(calc.bsMismatchY2))} — expected in a simplified 1-year projection (Capital is rolled forward from Last Year, not plugged). The Last Year Actual sheet above is unaffected.`);
+        } else {
+          note(`Year 2 estimate includes the recommended Term Loan (${inr(calc.recommendedTermLoan)}) as newly disbursed and the new asset it funds; existing loan balances carried forward unchanged.`);
+        }
       }
 
       sectionHeader("4. Working Capital Assessment");
@@ -1755,6 +2035,112 @@ function App() {
         y += 6;
         doc.setFont(undefined, "normal");
       };
+      const colMidX = (left + right) / 2;
+      const ledgerTable = (title, dr, cr) => {
+        const drTotal = dr.reduce((s, r) => s + (r.amount || 0), 0);
+        const crTotal = cr.reduce((s, r) => s + (r.amount || 0), 0);
+        const grand = Math.max(drTotal, crTotal);
+        const colLeftLabelX = left, colLeftAmtX = colMidX - 4, colRightLabelX = colMidX + 4, colRightAmtX = right;
+        const labelW = colMidX - 4 - left - 24;
+        ensureSpace(14);
+        doc.setFillColor(31, 59, 51);
+        doc.rect(left - 2, y - 5, right - left + 4, 7, "F");
+        doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.setFont(undefined, "bold");
+        doc.text(title, 105, y, { align: "center" });
+        doc.setTextColor(0, 0, 0); doc.setFont(undefined, "normal");
+        y += 8;
+        const tableStartY = y - 5;
+        doc.setFontSize(8.5); doc.setFont(undefined, "bold");
+        doc.text("Dr.", colLeftLabelX, y); doc.text("Amount (₹)", colLeftAmtX, y, { align: "right" });
+        doc.text("Cr.", colRightLabelX, y); doc.text("Amount (₹)", colRightAmtX, y, { align: "right" });
+        doc.setFont(undefined, "normal");
+        y += 5;
+        const maxLen = Math.max(dr.length, cr.length);
+        for (let i = 0; i < maxLen; i++) {
+          const dItem = dr[i], cItem = cr[i];
+          const dLines = dItem ? doc.splitTextToSize(`To ${dItem.label}`, labelW) : [];
+          const cLines = cItem ? doc.splitTextToSize(`By ${cItem.label}`, labelW) : [];
+          const lineCount = Math.max(dLines.length, cLines.length, 1);
+          ensureSpace(lineCount * 4.3 + 2);
+          doc.setFontSize(8);
+          if (dItem) { doc.setFont(undefined, dItem.bold ? "bold" : "normal"); doc.text(dLines, colLeftLabelX, y); doc.text(inr(dItem.amount), colLeftAmtX, y, { align: "right" }); }
+          if (cItem) { doc.setFont(undefined, cItem.bold ? "bold" : "normal"); doc.text(cLines, colRightLabelX, y); doc.text(inr(cItem.amount), colRightAmtX, y, { align: "right" }); }
+          doc.setFont(undefined, "normal");
+          y += lineCount * 4.3 + 1.5;
+        }
+        ensureSpace(7);
+        doc.setDrawColor(120, 120, 120);
+        doc.line(colLeftLabelX, y - 1, colRightAmtX, y - 1);
+        y += 3.5;
+        doc.setFont(undefined, "bold"); doc.setFontSize(8.5);
+        doc.text("Total", colLeftLabelX, y); doc.text(inr(grand), colLeftAmtX, y, { align: "right" });
+        doc.text("Total", colRightLabelX, y); doc.text(inr(grand), colRightAmtX, y, { align: "right" });
+        doc.setFont(undefined, "normal");
+        const tableEndY = y + 1.5;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(colMidX, tableStartY, colMidX, tableEndY);
+        y += 6;
+      };
+      const bsTable = (title, liabSections, assetSections, noteText) => {
+        const liabTotal = liabSections.reduce((s, sec) => s + sec.total, 0);
+        const assetTotal = assetSections.reduce((s, sec) => s + sec.total, 0);
+        const colLeftLabelX = left, colLeftAmtX = colMidX - 4, colRightLabelX = colMidX + 4, colRightAmtX = right;
+        const labelW = colMidX - 4 - left - 22;
+        ensureSpace(14);
+        doc.setFillColor(31, 59, 51);
+        doc.rect(left - 2, y - 5, right - left + 4, 7, "F");
+        doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.setFont(undefined, "bold");
+        doc.text(title, 105, y, { align: "center" });
+        doc.setTextColor(0, 0, 0); doc.setFont(undefined, "normal");
+        y += 8;
+        const tableStartY = y - 5;
+        doc.setFontSize(8.5); doc.setFont(undefined, "bold");
+        doc.text("Liabilities", colLeftLabelX, y);
+        doc.text("Assets", colRightLabelX, y);
+        doc.setFont(undefined, "normal");
+        y += 5;
+        const maxSec = Math.max(liabSections.length, assetSections.length);
+        for (let i = 0; i < maxSec; i++) {
+          const lSec = liabSections[i], aSec = assetSections[i];
+          ensureSpace(6);
+          doc.setFontSize(7.5); doc.setFont(undefined, "bold");
+          if (lSec) doc.text(lSec.heading.toUpperCase(), colLeftLabelX, y);
+          if (aSec) doc.text(aSec.heading.toUpperCase(), colRightLabelX, y);
+          doc.setFont(undefined, "normal");
+          y += 4;
+          const maxItems = Math.max(lSec ? lSec.items.length : 0, aSec ? aSec.items.length : 0);
+          for (let j = 0; j < maxItems; j++) {
+            const lIt = lSec && lSec.items[j], aIt = aSec && aSec.items[j];
+            const lLines = lIt ? doc.splitTextToSize(lIt.label, labelW) : [];
+            const aLines = aIt ? doc.splitTextToSize(aIt.label, labelW) : [];
+            const lineCount = Math.max(lLines.length, aLines.length, 1);
+            ensureSpace(lineCount * 4 + 1);
+            doc.setFontSize(7.5);
+            if (lIt) { doc.text(lLines, colLeftLabelX, y); doc.text(inr(lIt.amount), colLeftAmtX, y, { align: "right" }); }
+            if (aIt) { doc.text(aLines, colRightLabelX, y); doc.text(inr(aIt.amount), colRightAmtX, y, { align: "right" }); }
+            y += lineCount * 4 + 1;
+          }
+          ensureSpace(5);
+          doc.setFont(undefined, "bold"); doc.setFontSize(7.5);
+          if (lSec) { doc.text(`Total ${lSec.heading}`, colLeftLabelX, y); doc.text(inr(lSec.total), colLeftAmtX, y, { align: "right" }); }
+          if (aSec) { doc.text(`Total ${aSec.heading}`, colRightLabelX, y); doc.text(inr(aSec.total), colRightAmtX, y, { align: "right" }); }
+          doc.setFont(undefined, "normal");
+          y += 5;
+        }
+        ensureSpace(7);
+        doc.setDrawColor(120, 120, 120);
+        doc.line(colLeftLabelX, y - 1, colRightAmtX, y - 1);
+        y += 3.5;
+        doc.setFont(undefined, "bold"); doc.setFontSize(8.5);
+        doc.text("TOTAL LIABILITIES", colLeftLabelX, y); doc.text(inr(liabTotal), colLeftAmtX, y, { align: "right" });
+        doc.text("TOTAL ASSETS", colRightLabelX, y); doc.text(inr(assetTotal), colRightAmtX, y, { align: "right" });
+        doc.setFont(undefined, "normal");
+        const tableEndY = y + 1.5;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(colMidX, tableStartY, colMidX, tableEndY);
+        y += 6;
+        if (noteText) note(noteText);
+      };
 
       doc.setFontSize(16);
       doc.setFont(undefined, "bold");
@@ -1777,22 +2163,12 @@ function App() {
       y += 4;
 
       sectionHeader("1. Trading & Profit and Loss Account — Last Year (Actual)");
-      row("Sales (Net of Returns)", inr(calc.totalSales));
-      row("Opening Stock", inr(num(openingStock)));
-      row("Add: Purchases", inr(calc.totalPurchases));
-      row("Less: Closing Stock", inr(calc.closingStock));
-      row("Cost of Goods Sold (COGS)", inr(calc.cogs), { bold: true });
-      row("Gross Profit", inr(calc.grossProfit), { bold: true });
-      row("Gross Margin", pct(calc.grossMargin));
-      row("Add: Other Income", inr(calc.totalOtherIncome));
-      row("Add: Government Subsidy/Grant", inr(num(govtSubsidy)));
-      row("Less: Operating & Administrative Expenses", inr(calc.opexOnly));
-      if (num(calc.interestShgFinal) > 0) row("Less: Interest on SHG Loan", inr(calc.interestShgFinal));
-      if (num(calc.interestBankFinal) > 0) row("Less: Interest on Bank Loan", inr(calc.interestBankFinal));
-      if (num(calc.interestInformalFinal) > 0) row("Less: Interest on Informal Loan", inr(calc.interestInformalFinal));
-      if (num(calc.interestOtherBankFinal) > 0) row("Less: Interest on Other Bank Loan/OD", inr(calc.interestOtherBankFinal));
-      row("Net Profit / (Loss)", inr(calc.netProfit), { bold: true });
-      row("Net Margin", pct(calc.netMargin));
+      {
+        const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+        ledgerTable("Trading Account", ledger.trading.dr, ledger.trading.cr);
+        ledgerTable("Profit & Loss Account", ledger.pl.dr, ledger.pl.cr);
+        note(`Gross Margin ${pct(calc.grossMargin)} · Net Margin ${pct(calc.netMargin)}.`);
+      }
 
       sectionHeader("2. Trading & Profit and Loss Account — Projected");
       ensureSpace(8);
@@ -1811,36 +2187,27 @@ function App() {
       note(`Growth assumptions: Sales +${proj.growthSalesY2}% (Yr2), +${proj.growthSalesY3}% (Yr3); Operating Expenditure +${proj.growthOpexY2}% (Yr2), +${proj.growthOpexY3}% (Yr3). COGS estimated from Sales at the same blended margin as last year.`);
 
       sectionHeader("3. Balance Sheet — Last Year (Actual)");
-      subheader("Liabilities");
-      row("Current Liabilities (SHG Loan, Informal Loan, Creditors, etc.)", inr(calc.totalCL));
-      row("Long-Term Liabilities (Bank Term Loan)", inr(calc.totalLTL));
-      row("Owner's Capital / Net Worth", inr(calc.ownersCapital));
-      row("TOTAL LIABILITIES", inr(calc.totalLiabilities), { bold: true });
-      y += 2;
-      subheader("Assets");
-      row("Current Assets (Cash, Savings, Stock, Debtors, etc.)", inr(calc.totalCA));
-      row("Fixed Assets (Machinery, Furniture, etc.)", inr(calc.totalFA));
-      row("Other Assets (Security Deposits, etc.)", inr(calc.totalOA));
-      row("TOTAL ASSETS", inr(calc.totalAssets), { bold: true });
-      note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
-      note(`${calc.rawMaterialDays > 0 ? "Raw Material/" : ""}Stock/Debtors/Suppliers' Credit holding period (${enterprise.enterpriseType || "—"}): ${calc.rawMaterialDays > 0 ? `Raw Material ${calc.rawMaterialDays}d, ` : ""}Stock ${calc.stockHoldingDays}d, Debtors ${calc.debtorsDays}d, Suppliers ${calc.suppliersDays}d.`);
+      {
+        const bsActual = buildBalanceSheetBreakup(calc, credit, h3);
+        bsTable("Balance Sheet (Last Year Actual)", bsActual.liabSections, bsActual.assetSections);
+        note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
+        note(`${calc.rawMaterialDays > 0 ? "Raw Material/" : ""}Stock/Debtors/Suppliers' Credit holding period (${enterprise.enterpriseType || "—"}): ${calc.rawMaterialDays > 0 ? `Raw Material ${calc.rawMaterialDays}d, ` : ""}Stock ${calc.stockHoldingDays}d, Debtors ${calc.debtorsDays}d, Suppliers ${calc.suppliersDays}d.`);
+      }
 
       sectionHeader("4. Balance Sheet — Projected (Year 2, with loan facilities applied)");
-      subheader("Liabilities");
-      row("Current Liabilities (carried forward + Creditors on projected purchases)", inr(calc.clY2));
-      row("Long-Term Liabilities (existing Bank Term Loan + recommended new Term Loan)", inr(calc.ltlY2));
-      row("Owner's Capital / Net Worth (Last Year + Year 2 retained profit)", inr(calc.ownersCapitalY2));
-      row("TOTAL LIABILITIES", inr(calc.totalLiabilitiesY2), { bold: true });
-      y += 2;
-      subheader("Assets");
-      row("Current Assets (savings carried forward + Stock/Debtors on projected turnover)", inr(calc.caY2));
-      row("Fixed Assets (Last Year + new asset funded by this Term Loan)", inr(calc.faY2));
-      row("Other Assets (carried forward)", inr(calc.oaY2));
-      row("TOTAL ASSETS", inr(calc.totalAssetsY2), { bold: true });
-      if (calc.bsMismatchY2Flag) {
-        note(`BALANCE SHEET MISMATCH: Assets ${inr(calc.totalAssetsY2)} vs Liabilities+Capital ${inr(calc.totalLiabilitiesY2)} — differ by ${inr(Math.abs(calc.bsMismatchY2))}. Expected in a simplified 1-year projection (Capital is rolled forward from Last Year, not plugged). The Last Year Actual sheet above is unaffected and still tallies exactly.`);
-      } else {
-        note(`Balance Sheet tallies: Assets ${inr(calc.totalAssetsY2)} = Liabilities ${inr(calc.totalLiabilitiesY2)}. Estimated — existing SHG/Bank/Informal loan balances carried forward unchanged (no amortization schedule assumed); recommended Term Loan (${inr(calc.recommendedTermLoan)}) added as newly disbursed and applied to fund the new asset.`);
+      {
+        const bsY2 = buildBalanceSheetBreakupY2(calc);
+        bsTable(
+          "Balance Sheet (Year 2 Projected)",
+          bsY2.liabSections,
+          bsY2.assetSections,
+          "Category totals only — Year 2 is a simplified one-year projection, not itemised like the Actual year above."
+        );
+        if (calc.bsMismatchY2Flag) {
+          note(`BALANCE SHEET MISMATCH: Assets ${inr(calc.totalAssetsY2)} vs Liabilities+Capital ${inr(calc.totalLiabilitiesY2)} — differ by ${inr(Math.abs(calc.bsMismatchY2))}. Expected in a simplified 1-year projection (Capital is rolled forward from Last Year, not plugged). The Last Year Actual sheet above is unaffected and still tallies exactly.`);
+        } else {
+          note(`Balance Sheet tallies: Assets ${inr(calc.totalAssetsY2)} = Liabilities ${inr(calc.totalLiabilitiesY2)}. Estimated — existing SHG/Bank/Informal loan balances carried forward unchanged (no amortization schedule assumed); recommended Term Loan (${inr(calc.recommendedTermLoan)}) added as newly disbursed and applied to fund the new asset.`);
+        }
       }
 
       ensureSpace(30);
@@ -1953,6 +2320,112 @@ function App() {
         doc.text(y3v, right, y, { align: "right" });
         y += 6;
         doc.setFont(undefined, "normal");
+      };
+      const colMidX = (left + right) / 2;
+      const ledgerTable = (title, dr, cr) => {
+        const drTotal = dr.reduce((s, r) => s + (r.amount || 0), 0);
+        const crTotal = cr.reduce((s, r) => s + (r.amount || 0), 0);
+        const grand = Math.max(drTotal, crTotal);
+        const colLeftLabelX = left, colLeftAmtX = colMidX - 4, colRightLabelX = colMidX + 4, colRightAmtX = right;
+        const labelW = colMidX - 4 - left - 24;
+        ensureSpace(14);
+        doc.setFillColor(31, 59, 51);
+        doc.rect(left - 2, y - 5, right - left + 4, 7, "F");
+        doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.setFont(undefined, "bold");
+        doc.text(title, 105, y, { align: "center" });
+        doc.setTextColor(0, 0, 0); doc.setFont(undefined, "normal");
+        y += 8;
+        const tableStartY = y - 5;
+        doc.setFontSize(8.5); doc.setFont(undefined, "bold");
+        doc.text("Dr.", colLeftLabelX, y); doc.text("Amount (₹)", colLeftAmtX, y, { align: "right" });
+        doc.text("Cr.", colRightLabelX, y); doc.text("Amount (₹)", colRightAmtX, y, { align: "right" });
+        doc.setFont(undefined, "normal");
+        y += 5;
+        const maxLen = Math.max(dr.length, cr.length);
+        for (let i = 0; i < maxLen; i++) {
+          const dItem = dr[i], cItem = cr[i];
+          const dLines = dItem ? doc.splitTextToSize(`To ${dItem.label}`, labelW) : [];
+          const cLines = cItem ? doc.splitTextToSize(`By ${cItem.label}`, labelW) : [];
+          const lineCount = Math.max(dLines.length, cLines.length, 1);
+          ensureSpace(lineCount * 4.3 + 2);
+          doc.setFontSize(8);
+          if (dItem) { doc.setFont(undefined, dItem.bold ? "bold" : "normal"); doc.text(dLines, colLeftLabelX, y); doc.text(inr(dItem.amount), colLeftAmtX, y, { align: "right" }); }
+          if (cItem) { doc.setFont(undefined, cItem.bold ? "bold" : "normal"); doc.text(cLines, colRightLabelX, y); doc.text(inr(cItem.amount), colRightAmtX, y, { align: "right" }); }
+          doc.setFont(undefined, "normal");
+          y += lineCount * 4.3 + 1.5;
+        }
+        ensureSpace(7);
+        doc.setDrawColor(120, 120, 120);
+        doc.line(colLeftLabelX, y - 1, colRightAmtX, y - 1);
+        y += 3.5;
+        doc.setFont(undefined, "bold"); doc.setFontSize(8.5);
+        doc.text("Total", colLeftLabelX, y); doc.text(inr(grand), colLeftAmtX, y, { align: "right" });
+        doc.text("Total", colRightLabelX, y); doc.text(inr(grand), colRightAmtX, y, { align: "right" });
+        doc.setFont(undefined, "normal");
+        const tableEndY = y + 1.5;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(colMidX, tableStartY, colMidX, tableEndY);
+        y += 6;
+      };
+      const bsTable = (title, liabSections, assetSections, noteText) => {
+        const liabTotal = liabSections.reduce((s, sec) => s + sec.total, 0);
+        const assetTotal = assetSections.reduce((s, sec) => s + sec.total, 0);
+        const colLeftLabelX = left, colLeftAmtX = colMidX - 4, colRightLabelX = colMidX + 4, colRightAmtX = right;
+        const labelW = colMidX - 4 - left - 22;
+        ensureSpace(14);
+        doc.setFillColor(31, 59, 51);
+        doc.rect(left - 2, y - 5, right - left + 4, 7, "F");
+        doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.setFont(undefined, "bold");
+        doc.text(title, 105, y, { align: "center" });
+        doc.setTextColor(0, 0, 0); doc.setFont(undefined, "normal");
+        y += 8;
+        const tableStartY = y - 5;
+        doc.setFontSize(8.5); doc.setFont(undefined, "bold");
+        doc.text("Liabilities", colLeftLabelX, y);
+        doc.text("Assets", colRightLabelX, y);
+        doc.setFont(undefined, "normal");
+        y += 5;
+        const maxSec = Math.max(liabSections.length, assetSections.length);
+        for (let i = 0; i < maxSec; i++) {
+          const lSec = liabSections[i], aSec = assetSections[i];
+          ensureSpace(6);
+          doc.setFontSize(7.5); doc.setFont(undefined, "bold");
+          if (lSec) doc.text(lSec.heading.toUpperCase(), colLeftLabelX, y);
+          if (aSec) doc.text(aSec.heading.toUpperCase(), colRightLabelX, y);
+          doc.setFont(undefined, "normal");
+          y += 4;
+          const maxItems = Math.max(lSec ? lSec.items.length : 0, aSec ? aSec.items.length : 0);
+          for (let j = 0; j < maxItems; j++) {
+            const lIt = lSec && lSec.items[j], aIt = aSec && aSec.items[j];
+            const lLines = lIt ? doc.splitTextToSize(lIt.label, labelW) : [];
+            const aLines = aIt ? doc.splitTextToSize(aIt.label, labelW) : [];
+            const lineCount = Math.max(lLines.length, aLines.length, 1);
+            ensureSpace(lineCount * 4 + 1);
+            doc.setFontSize(7.5);
+            if (lIt) { doc.text(lLines, colLeftLabelX, y); doc.text(inr(lIt.amount), colLeftAmtX, y, { align: "right" }); }
+            if (aIt) { doc.text(aLines, colRightLabelX, y); doc.text(inr(aIt.amount), colRightAmtX, y, { align: "right" }); }
+            y += lineCount * 4 + 1;
+          }
+          ensureSpace(5);
+          doc.setFont(undefined, "bold"); doc.setFontSize(7.5);
+          if (lSec) { doc.text(`Total ${lSec.heading}`, colLeftLabelX, y); doc.text(inr(lSec.total), colLeftAmtX, y, { align: "right" }); }
+          if (aSec) { doc.text(`Total ${aSec.heading}`, colRightLabelX, y); doc.text(inr(aSec.total), colRightAmtX, y, { align: "right" }); }
+          doc.setFont(undefined, "normal");
+          y += 5;
+        }
+        ensureSpace(7);
+        doc.setDrawColor(120, 120, 120);
+        doc.line(colLeftLabelX, y - 1, colRightAmtX, y - 1);
+        y += 3.5;
+        doc.setFont(undefined, "bold"); doc.setFontSize(8.5);
+        doc.text("TOTAL LIABILITIES", colLeftLabelX, y); doc.text(inr(liabTotal), colLeftAmtX, y, { align: "right" });
+        doc.text("TOTAL ASSETS", colRightLabelX, y); doc.text(inr(assetTotal), colRightAmtX, y, { align: "right" });
+        doc.setFont(undefined, "normal");
+        const tableEndY = y + 1.5;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(colMidX, tableStartY, colMidX, tableEndY);
+        y += 6;
+        if (noteText) note(noteText);
       };
       const pageTitle = (title, subtitle) => {
         doc.setFontSize(15);
@@ -2148,21 +2621,11 @@ function App() {
       pageTitle("ATTACHMENT: PROFIT & LOSS ACCOUNT AND BALANCE SHEET", "DAY-NRLM Enterprise Loan — Annexure III Business Analysis");
 
       sectionHeader("1. Trading & Profit and Loss Account — Last Year (Actual)");
-      row("Sales (Net of Returns)", inr(calc.totalSales));
-      row("Opening Stock", inr(num(openingStock)));
-      row("Add: Purchases", inr(calc.totalPurchases));
-      row("Less: Closing Stock", inr(calc.closingStock));
-      row("Cost of Goods Sold (COGS)", inr(calc.cogs), { bold: true });
-      row("Gross Profit", inr(calc.grossProfit), { bold: true });
-      row("Gross Margin", pct(calc.grossMargin));
-      row("Add: Other Income", inr(calc.totalOtherIncome));
-      row("Add: Government Subsidy/Grant", inr(num(govtSubsidy)));
-      row("Less: Operating & Administrative Expenses", inr(calc.opexOnly));
-      if (num(calc.interestShgFinal) > 0) row("Less: Interest on SHG Loan", inr(calc.interestShgFinal));
-      if (num(calc.interestBankFinal) > 0) row("Less: Interest on Bank Loan", inr(calc.interestBankFinal));
-      if (num(calc.interestInformalFinal) > 0) row("Less: Interest on Informal Loan", inr(calc.interestInformalFinal));
-      if (num(calc.interestOtherBankFinal) > 0) row("Less: Interest on Other Bank Loan/OD", inr(calc.interestOtherBankFinal));
-      row("Net Profit / (Loss)", inr(calc.netProfit), { bold: true });
+      {
+        const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+        ledgerTable("Trading Account", ledger.trading.dr, ledger.trading.cr);
+        ledgerTable("Profit & Loss Account", ledger.pl.dr, ledger.pl.cr);
+      }
 
       sectionHeader("2. Trading & Profit and Loss Account — Projected");
       ensureSpace(8);
@@ -2179,25 +2642,19 @@ function App() {
       twoRow("Net Profit / (Loss)", inr(calc.netProfitY2), inr(calc.netProfitY3), true);
 
       sectionHeader("3. Balance Sheet — Last Year (Actual)");
-      subheader("Liabilities");
-      row("Current Liabilities", inr(calc.totalCL));
-      row("Long-Term Liabilities", inr(calc.totalLTL));
-      row("Owner's Capital / Net Worth", inr(calc.ownersCapital));
-      row("TOTAL LIABILITIES", inr(calc.totalLiabilities), { bold: true });
-      y += 2;
-      subheader("Assets");
-      row("Current Assets", inr(calc.totalCA));
-      row("Fixed Assets", inr(calc.totalFA));
-      row("Other Assets", inr(calc.totalOA));
-      row("TOTAL ASSETS", inr(calc.totalAssets), { bold: true });
-      note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
+      {
+        const bsActual = buildBalanceSheetBreakup(calc, credit, h3);
+        bsTable("Balance Sheet (Last Year Actual)", bsActual.liabSections, bsActual.assetSections);
+        note(`Balance Sheet tallies: Assets ${inr(calc.totalAssets)} = Liabilities ${inr(calc.totalLiabilities)}.`);
+      }
 
       sectionHeader("4. Balance Sheet — Projected (Year 2, loan applied)");
-      row("Total Assets", inr(calc.totalAssetsY2));
-      row("Total Liabilities", inr(calc.totalLiabilitiesY2));
-      row("Owner's Capital", inr(calc.ownersCapitalY2), { bold: true });
-      if (calc.bsMismatchY2Flag) {
-        note(`BALANCE SHEET MISMATCH: differ by ${inr(Math.abs(calc.bsMismatchY2))} — expected in a simplified projection.`);
+      {
+        const bsY2 = buildBalanceSheetBreakupY2(calc);
+        bsTable("Balance Sheet (Year 2 Projected)", bsY2.liabSections, bsY2.assetSections, "Category totals only — Year 2 is a simplified projection.");
+        if (calc.bsMismatchY2Flag) {
+          note(`BALANCE SHEET MISMATCH: differ by ${inr(Math.abs(calc.bsMismatchY2))} — expected in a simplified projection.`);
+        }
       }
 
       const blob = doc.output("blob");
@@ -3203,7 +3660,7 @@ function App() {
                 <Icon name="account_balance" size={15}  /> Loan Application Form
               </button>
             </div>
-            <Report identity={identity} enterprise={enterprise} credit={credit} loanF={loanF} wc={wc} tl={tl} openingStock={openingStock} govtSubsidy={govtSubsidy} proj={proj} calc={calc} />
+            <Report identity={identity} enterprise={enterprise} credit={credit} h3={h3} loanF={loanF} wc={wc} tl={tl} openingStock={openingStock} govtSubsidy={govtSubsidy} proj={proj} calc={calc} />
             <div className="mt-4 no-print space-y-2">
               <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">Documents for bank submission</p>
               <button onClick={() => setFsOpen(true)} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold">
@@ -3310,6 +3767,8 @@ function App() {
         proj={proj}
         openingStock={openingStock}
         govtSubsidy={govtSubsidy}
+        credit={credit}
+        h3={h3}
         calc={calc}
         onDownload={downloadFinancialStatementPdf}
         busy={fsBusy}
@@ -3343,7 +3802,10 @@ function Stamp({ recommendation, tone }) {
   );
 }
 
-function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, govtSubsidy, proj, calc }) {
+function Report({ identity, enterprise, credit, h3, loanF, wc, tl, openingStock, govtSubsidy, proj, calc }) {
+  const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+  const bsActual = buildBalanceSheetBreakup(calc, credit, h3);
+  const bsY2 = buildBalanceSheetBreakupY2(calc);
   return (
     <div className="print-area bg-white border border-stone-300 rounded-lg p-5 shadow-sm">
       <div className="text-center mb-4">
@@ -3361,45 +3823,24 @@ function Report({ identity, enterprise, credit, loanF, wc, tl, openingStock, gov
       <Row label="Experience" value={`${enterprise.experience || 0} yrs`} />
       <Row label="Bank & Branch" value={`${identity.bankName || "—"}, ${identity.branchName || "—"}`} last />
 
-      <SubHeading>2. Trading & P&L Account — Last Year (Actual) / व्यापार व लाभ-हानि खाता (पिछला वर्ष)</SubHeading>
-      <Row label="Sales (Net of Returns)" value={inr(calc.totalSales)} auto />
-      <Row label="Opening Stock" value={inr(num(openingStock))} />
-      <Row label="Add: Purchases" value={inr(calc.totalPurchases)} auto />
-      <Row label="Less: Closing Stock" value={inr(calc.closingStock)} auto />
-      <Row label="Cost of Goods Sold (COGS)" value={inr(calc.cogs)} bold auto />
-      <Row label="Gross Profit" value={inr(calc.grossProfit)} bold auto />
-      <Row label="Gross Margin" value={pct(calc.grossMargin)} auto />
-      <Row label="Add: Other Income" value={inr(calc.totalOtherIncome)} auto />
-      <Row label="Add: Government Subsidy/Grant" value={inr(num(govtSubsidy))} />
-      <Row label="Less: Operating & Administrative Expenses" value={inr(calc.opexOnly)} auto />
-      {num(calc.interestShgFinal) > 0 && <Row label="Less: Interest on SHG Loan" value={inr(calc.interestShgFinal)} auto />}
-      {num(calc.interestBankFinal) > 0 && <Row label="Less: Interest on Bank Loan" value={inr(calc.interestBankFinal)} auto />}
-      {num(calc.interestInformalFinal) > 0 && <Row label="Less: Interest on Informal Loan" value={inr(calc.interestInformalFinal)} auto />}
-      {num(calc.interestOtherBankFinal) > 0 && <Row label="Less: Interest on Other Bank Loan/OD" value={inr(calc.interestOtherBankFinal)} auto />}
-      <Row label="Net Profit / (Loss)" value={inr(calc.netProfit)} bold auto />
-      <Row label="Net Margin" value={pct(calc.netMargin)} last auto />
-      <p className="text-xs text-stone-500 italic mt-1 mb-2">Includes actual interest paid — SHG {inr(calc.interestShgFinal)}, Bank {inr(calc.interestBankFinal)}, Informal {inr(calc.interestInformalFinal)}.</p>
+      <SubHeading>2. Trading Account — Last Year (Actual) / व्यापार खाता (पिछला वर्ष)</SubHeading>
+      <LedgerAccount title="Trading Account" dr={ledger.trading.dr} cr={ledger.trading.cr} />
+
+      <SubHeading>Profit & Loss Account — Last Year (Actual) / लाभ-हानि खाता (पिछला वर्ष)</SubHeading>
+      <LedgerAccount title="Profit & Loss Account" dr={ledger.pl.dr} cr={ledger.pl.cr} />
+      <p className="text-xs text-stone-500 italic mt-1 mb-2">Gross Margin {pct(calc.grossMargin)} · Net Margin {pct(calc.netMargin)} · Includes actual interest paid — SHG {inr(calc.interestShgFinal)}, Bank {inr(calc.interestBankFinal)}, Informal {inr(calc.interestInformalFinal)}.</p>
 
       <SubHeading>3. Balance Sheet — Last Year (Actual) / तुलन पत्र (पिछला वर्ष)</SubHeading>
-      <Row label="Total Current Liabilities" value={inr(calc.totalCL)} auto />
-      <Row label="Total Long-Term Liabilities" value={inr(calc.totalLTL)} auto />
-      <Row label="Owner's Capital / Net Worth" value={inr(calc.ownersCapital)} auto />
-      <Row label="TOTAL LIABILITIES" value={inr(calc.totalLiabilities)} bold auto />
-      <Row label="Total Current Assets" value={inr(calc.totalCA)} auto />
-      <Row label="Total Fixed Assets" value={inr(calc.totalFA)} auto />
-      <Row label="Total Other Assets" value={inr(calc.totalOA)} auto />
-      <Row label="TOTAL ASSETS" value={inr(calc.totalAssets)} bold auto last />
+      <BalanceSheetBreakupTable title="Balance Sheet (Last Year Actual)" liabSections={bsActual.liabSections} assetSections={bsActual.assetSections} />
       <p className="text-xs text-stone-500 italic mt-1 mb-2">Balance Sheet tallies: Assets {inr(calc.totalAssets)} = Liabilities {inr(calc.totalLiabilities)}.</p>
 
       <SubHeading>Balance Sheet — Projected (Year 2, with loan facilities applied) / तुलन पत्र — अनुमानित (वर्ष 2)</SubHeading>
-      <Row label="Current Liabilities (carried forward + Creditors on projected purchases)" value={inr(calc.clY2)} auto />
-      <Row label="Long-Term Liabilities (existing Bank Term Loan + recommended new Term Loan)" value={inr(calc.ltlY2)} auto />
-      <Row label="Owner's Capital / Net Worth (Last Year Capital + Year 2 retained profit)" value={inr(calc.ownersCapitalY2)} auto />
-      <Row label="TOTAL LIABILITIES" value={inr(calc.totalLiabilitiesY2)} bold auto />
-      <Row label="Current Assets (savings carried forward + Stock/Debtors on projected turnover)" value={inr(calc.caY2)} auto />
-      <Row label="Fixed Assets (Last Year + new asset funded by this Term Loan)" value={inr(calc.faY2)} auto />
-      <Row label="Other Assets (carried forward)" value={inr(calc.oaY2)} auto />
-      <Row label="TOTAL ASSETS" value={inr(calc.totalAssetsY2)} bold auto last />
+      <BalanceSheetBreakupTable
+        title="Balance Sheet (Year 2 Projected)"
+        liabSections={bsY2.liabSections}
+        assetSections={bsY2.assetSections}
+        note="Category totals only — Year 2 is a simplified one-year projection, not itemised like the Actual year above. Owner's Capital = Last Year Capital + Year 2 retained profit; Long-Term Liabilities = existing Bank Term Loan + recommended new Term Loan; Fixed Assets = Last Year + new asset funded by this Term Loan."
+      />
       {calc.bsMismatchY2Flag ? (
         <Banner tone="warn">
           Balance Sheet Mismatch: Total Assets ({inr(calc.totalAssetsY2)}) do not equal Capital + Liabilities ({inr(calc.totalLiabilitiesY2)}) — a difference of {inr(Math.abs(calc.bsMismatchY2))}. This is expected in a simplified 1-year projection (Capital here is rolled forward from Last Year's actual figure, not plugged) — see Health Check for details. The Last Year Actual sheet above is unaffected and still tallies exactly.

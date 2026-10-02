@@ -64,7 +64,15 @@ const inr = (n) => "₹" + (isFinite(n) ? Math.round(n) : 0).toLocaleString("en-
 const pct = (n) => (isFinite(n) ? n.toFixed(1) : "0.0") + "%";
 const sum = (...vals) => vals.reduce((a, b) => a + (Number(b) || 0), 0);
 
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.6.1";
+// Change log:
+// v1.6.1 — Profit & Loss Account now shows Operating & Administrative Expenses headwise (Wages & Labour, Family
+//   Labour, Rent, Electricity & Fuel, Maintenance & Repairs, Transport, Packing, Commission, Bank Charges,
+//   GST/Taxes Paid, Depreciation, Other Expenditure 1/2 — whichever are non-zero) instead of one consolidated
+//   figure, on the Dr. side, in the on-screen panel, the Report, and all three PDFs. These line items are the
+//   exact same Step 3 figures already entered — they sum to exactly the same Operating & Administrative Expenses
+//   total used everywhere else (opexOnly), so nothing is duplicated or out of sync; where none of these fields
+//   are available to a caller, it falls back to the single consolidated line as before.
 // Change log:
 // v1.6.0 — Trading & P&L Account and Balance Sheet now presented in the classic two-column "T" ledger format
 //   small businesses/CAs actually prepare by hand, instead of a vertical statement list. No calculations changed
@@ -575,7 +583,7 @@ const OA_FIELDS = [{ k: "securityDeposits", l: "Security Deposits Paid / जम�
 // side of the Trading Account (the balancing figure) and brought down ("b/d") on the Cr side of the P&L Account —
 // this is why it appears on the right in the P&L Account, as requested. No new calculations — reuses the existing
 // calc figures (COGS/GP/NP) exactly as already computed; this only changes how they are laid out.
-function buildTradingPLLedger(calc, openingStock, govtSubsidy) {
+function buildTradingPLLedger(calc, openingStock, govtSubsidy, h2) {
   const trading = {
     dr: [
       { label: "Opening Stock", amount: num(openingStock) },
@@ -588,7 +596,14 @@ function buildTradingPLLedger(calc, openingStock, govtSubsidy) {
     ],
   };
   const dr = [];
-  if (calc.opexOnly > 0) dr.push({ label: "Operating & Administrative Expenses", amount: calc.opexOnly, auto: true });
+  // Headwise Operating & Administrative Expenses (single source — these line items sum to exactly calc.opexOnly,
+  // the same figure used everywhere else, so nothing is duplicated or out of sync).
+  const expenseHeads = (h2 ? H2_EXPENDITURE_FIELDS.map((f) => ({ label: shortLabel(f.l), amount: num(h2[f.k]) })) : []).filter((x) => x.amount > 0);
+  if (expenseHeads.length) {
+    dr.push(...expenseHeads);
+  } else if (calc.opexOnly > 0) {
+    dr.push({ label: "Operating & Administrative Expenses", amount: calc.opexOnly, auto: true });
+  }
   if (num(calc.interestShgFinal) > 0) dr.push({ label: "Interest on SHG Loan", amount: calc.interestShgFinal, auto: true });
   if (num(calc.interestBankFinal) > 0) dr.push({ label: "Interest on Bank Loan", amount: calc.interestBankFinal, auto: true });
   if (num(calc.interestInformalFinal) > 0) dr.push({ label: "Interest on Informal Loan", amount: calc.interestInformalFinal, auto: true });
@@ -998,9 +1013,9 @@ function BPMPanel({ open, onClose, submissions, loading, error, onRefresh }) {
 }
 
 // ---------------- Financial Statements for Bank (separate menu, on-screen + PDF) ----------------
-function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, proj, openingStock, govtSubsidy, credit, h3, calc, onDownload, busy, status }) {
+function FinancialStatementsPanel({ open, onClose, identity, enterprise, loanF, proj, openingStock, govtSubsidy, credit, h2, h3, calc, onDownload, busy, status }) {
   if (!open) return null;
-  const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+  const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy, h2);
   const bsActual = buildBalanceSheetBreakup(calc, credit, h3);
   const bsY2 = buildBalanceSheetBreakupY2(calc);
   return (
@@ -1827,7 +1842,7 @@ function App() {
 
       sectionHeader("2. Trading & Profit and Loss Account — Last Year (Actual)");
       {
-        const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+        const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy, h2);
         ledgerTable("Trading Account", ledger.trading.dr, ledger.trading.cr);
         ledgerTable("Profit & Loss Account", ledger.pl.dr, ledger.pl.cr);
         note(`Gross Margin ${pct(calc.grossMargin)} · Net Margin ${pct(calc.netMargin)} · Includes actual interest paid — SHG ${inr(calc.interestShgFinal)}, Bank ${inr(calc.interestBankFinal)}, Informal ${inr(calc.interestInformalFinal)}.`);
@@ -2164,7 +2179,7 @@ function App() {
 
       sectionHeader("1. Trading & Profit and Loss Account — Last Year (Actual)");
       {
-        const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+        const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy, h2);
         ledgerTable("Trading Account", ledger.trading.dr, ledger.trading.cr);
         ledgerTable("Profit & Loss Account", ledger.pl.dr, ledger.pl.cr);
         note(`Gross Margin ${pct(calc.grossMargin)} · Net Margin ${pct(calc.netMargin)}.`);
@@ -2622,7 +2637,7 @@ function App() {
 
       sectionHeader("1. Trading & Profit and Loss Account — Last Year (Actual)");
       {
-        const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+        const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy, h2);
         ledgerTable("Trading Account", ledger.trading.dr, ledger.trading.cr);
         ledgerTable("Profit & Loss Account", ledger.pl.dr, ledger.pl.cr);
       }
@@ -3660,7 +3675,7 @@ function App() {
                 <Icon name="account_balance" size={15}  /> Loan Application Form
               </button>
             </div>
-            <Report identity={identity} enterprise={enterprise} credit={credit} h3={h3} loanF={loanF} wc={wc} tl={tl} openingStock={openingStock} govtSubsidy={govtSubsidy} proj={proj} calc={calc} />
+            <Report identity={identity} enterprise={enterprise} credit={credit} h2={h2} h3={h3} loanF={loanF} wc={wc} tl={tl} openingStock={openingStock} govtSubsidy={govtSubsidy} proj={proj} calc={calc} />
             <div className="mt-4 no-print space-y-2">
               <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide">Documents for bank submission</p>
               <button onClick={() => setFsOpen(true)} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md bg-emerald-900 text-stone-50 text-sm font-semibold">
@@ -3768,6 +3783,7 @@ function App() {
         openingStock={openingStock}
         govtSubsidy={govtSubsidy}
         credit={credit}
+        h2={h2}
         h3={h3}
         calc={calc}
         onDownload={downloadFinancialStatementPdf}
@@ -3802,8 +3818,8 @@ function Stamp({ recommendation, tone }) {
   );
 }
 
-function Report({ identity, enterprise, credit, h3, loanF, wc, tl, openingStock, govtSubsidy, proj, calc }) {
-  const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy);
+function Report({ identity, enterprise, credit, h2, h3, loanF, wc, tl, openingStock, govtSubsidy, proj, calc }) {
+  const ledger = buildTradingPLLedger(calc, openingStock, govtSubsidy, h2);
   const bsActual = buildBalanceSheetBreakup(calc, credit, h3);
   const bsY2 = buildBalanceSheetBreakupY2(calc);
   return (
